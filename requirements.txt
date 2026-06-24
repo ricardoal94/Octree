@@ -1,0 +1,25 @@
+# Fase 1 - ModelNet40 / PointNet (Net5)
+# Instalar con: pip install -r requirements.txt
+
+# Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Computo cientifico
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Machine Learning (Bosque Aleatorio)
+scikit-learn>=1.3.0
+
+# Geometria 3D / nubes de puntos
+open3d>=0.17.0
+
+# Configuracion
+pyyaml>=6.0
+
+# Progreso y logging
+tqdm>=4.65.0
+
+# Visualizacion (opcional)
+matplotlib>=3.7.0
