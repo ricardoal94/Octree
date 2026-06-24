@@ -1,0 +1,95 @@
+{
+  "metadata": {
+    "timestamp": "2026-06-15T16:10:21.852492",
+    "version_experimento": "1.0.0",
+    "fase": 1
+  },
+  "configuracion": {
+    "project": {
+      "name": "ModelNet40 - Clasificacion 3D con PointNet",
+      "fase": 1,
+      "descripcion": "Definicion del caso de estudio y control de estocasticidad"
+    },
+    "reproducibilidad": {
+      "seed": 42,
+      "deterministic": true,
+      "benchmark": false
+    },
+    "dataset": {
+      "nombre": "ModelNet40",
+      "clases": 40,
+      "train_total": 9843,
+      "test_total": 2468,
+      "val_split": 0.1,
+      "num_points": 1024,
+      "data_augmentation": true
+    },
+    "modelo": {
+      "nombre": "Net5_PointNet",
+      "input_channels": 3,
+      "feature_dim": 1024,
+      "num_clases": 40,
+      "dropout": 0.3
+    },
+    "entrenamiento": {
+      "batch_size": 32,
+      "epochs": 200,
+      "learning_rate": 0.001,
+      "optimizer": "Adam",
+      "scheduler": "StepLR",
+      "step_size": 20,
+      "gamma": 0.7,
+      "weight_decay": 0.0001
+    },
+    "bosque_aleatorio": {
+      "n_estimators": 100,
+      "max_depth": null,
+      "min_samples_split": 2,
+      "random_state": 42
+    },
+    "hardware": {
+      "dispositivo": "auto",
+      "num_workers": 4,
+      "pin_memory": true
+    },
+    "librerias": {
+      "python": "3.10+",
+      "torch": ">=2.0.0",
+      "torchvision": ">=0.15.0",
+      "numpy": ">=1.24.0",
+      "scikit-learn": ">=1.3.0",
+      "pyyaml": ">=6.0",
+      "tqdm": ">=4.65.0",
+      "open3d": ">=0.17.0"
+    },
+    "rutas": {
+      "dataset_root": "./data/modelnet40",
+      "checkpoints": "./checkpoints",
+      "logs": "./logs",
+      "resultados": "./resultados"
+    }
+  },
+  "hardware": {
+    "sistema_operativo": "Windows",
+    "arquitectura": "AMD64",
+    "procesador": "AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD",
+    "dispositivo_entrenamiento": "cpu",
+    "gpu": {},
+    "versiones_librerias": {
+      "python": "3.14.4",
+      "torch": "2.12.0+cpu",
+      "numpy": "2.4.6",
+      "sklearn": "1.9.0",
+      "yaml": "6.0.3",
+      "tqdm": "4.68.2",
+      "open3d": "no instalado"
+    }
+  },
+  "particion": {
+    "seed_utilizada": 42,
+    "val_split": 0.1,
+    "train_n": 8859,
+    "val_n": 984,
+    "test_n": 2468
+  }
+}
