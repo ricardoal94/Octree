@@ -1,0 +1,78 @@
+{
+  "n_total": 12311,
+  "n_errores": 0,
+  "n_vertices": {
+    "media": 17744.3633,
+    "mediana": 3579.0,
+    "min": 14.0,
+    "max": 2501688.0,
+    "std": 59023.4875
+  },
+  "n_caras": {
+    "media": 17515.9274,
+    "mediana": 3570.0,
+    "min": 4.0,
+    "max": 4548836.0,
+    "std": 66886.6784
+  },
+  "t_preproceso_ms": {
+    "media": 7.073,
+    "mediana": 4.584,
+    "min": 2.168,
+    "max": 719.643,
+    "std": 12.3055
+  },
+  "t_vox32_ms": {
+    "media": 0.5097,
+    "mediana": 0.449,
+    "min": 0.251,
+    "max": 2.644,
+    "std": 0.1872
+  },
+  "t_vox64_ms": {
+    "media": 0.6267,
+    "mediana": 0.601,
+    "min": 0.249,
+    "max": 6.223,
+    "std": 0.1927
+  },
+  "t_total_ms": {
+    "media": 8.2094,
+    "mediana": 5.76,
+    "min": 2.818,
+    "max": 720.504,
+    "std": 12.3505
+  },
+  "ocup32_abs": {
+    "media": 1715.4518,
+    "mediana": 1510.0,
+    "min": 6.0,
+    "max": 9936.0,
+    "std": 1098.6599
+  },
+  "ocup32_pct": {
+    "media": 5.2351,
+    "mediana": 4.6082,
+    "min": 0.0183,
+    "max": 30.3223,
+    "std": 3.3528
+  },
+  "ocup64_abs": {
+    "media": 6082.4085,
+    "mediana": 5950.0,
+    "min": 6.0,
+    "max": 16698.0,
+    "std": 3075.4803
+  },
+  "ocup64_pct": {
+    "media": 2.3203,
+    "mediana": 2.2697,
+    "min": 0.0023,
+    "max": 6.3698,
+    "std": 1.1732
+  },
+  "mem32_kb_por_objeto": 128.0,
+  "mem64_kb_por_objeto": 1024.0,
+  "mem32_dataset_mb": 1538.9,
+  "mem64_dataset_mb": 12311.0
+}

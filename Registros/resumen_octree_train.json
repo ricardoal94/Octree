@@ -1,0 +1,427 @@
+{
+  "split": "train",
+  "global": {
+    "n_total": 9843,
+    "n_clases": 40,
+    "n_errores": 0,
+    "ocup32_pct_media": 5.1813,
+    "ocup32_pct_std": 3.3048,
+    "ocup64_pct_media": 2.3006,
+    "ocup64_pct_std": 1.1602,
+    "nodos32_media": 1698.0,
+    "nodos32_std": 1083.0,
+    "nodos64_media": 6031.0,
+    "nodos64_std": 3041.0,
+    "t_total_media_ms": 8.2732,
+    "t_total_std_ms": 13.4303,
+    "t_total_dataset_min": 1.4,
+    "mem32_total_dataset_mb": 1230.4,
+    "mem32_total_dataset_gb": 1.202,
+    "mem64_total_dataset_mb": 9843.0,
+    "mem64_total_dataset_gb": 9.612,
+    "mem_por_objeto_32_kb": 128.0,
+    "mem_por_objeto_64_kb": 1024.0
+  },
+  "por_clase": {
+    "airplane": {
+      "n": 626,
+      "ocup32_pct_media": 1.5744,
+      "ocup64_pct_media": 0.7666,
+      "nodos32_media": 516.0,
+      "nodos64_media": 2009.0,
+      "t_total_media_ms": 23.4468,
+      "mem32_total_mb": 78.25,
+      "mem64_total_mb": 626.0
+    },
+    "bathtub": {
+      "n": 106,
+      "ocup32_pct_media": 4.3661,
+      "ocup64_pct_media": 2.0353,
+      "nodos32_media": 1431.0,
+      "nodos64_media": 5335.0,
+      "t_total_media_ms": 7.3748,
+      "mem32_total_mb": 13.25,
+      "mem64_total_mb": 106.0
+    },
+    "bed": {
+      "n": 515,
+      "ocup32_pct_media": 5.6075,
+      "ocup64_pct_media": 2.5586,
+      "nodos32_media": 1837.0,
+      "nodos64_media": 6707.0,
+      "t_total_media_ms": 7.9293,
+      "mem32_total_mb": 64.38,
+      "mem64_total_mb": 515.0
+    },
+    "bench": {
+      "n": 173,
+      "ocup32_pct_media": 3.392,
+      "ocup64_pct_media": 1.722,
+      "nodos32_media": 1112.0,
+      "nodos64_media": 4514.0,
+      "t_total_media_ms": 5.9307,
+      "mem32_total_mb": 21.62,
+      "mem64_total_mb": 173.0
+    },
+    "bookshelf": {
+      "n": 572,
+      "ocup32_pct_media": 6.2189,
+      "ocup64_pct_media": 2.8514,
+      "nodos32_media": 2038.0,
+      "nodos64_media": 7475.0,
+      "t_total_media_ms": 7.2921,
+      "mem32_total_mb": 71.5,
+      "mem64_total_mb": 572.0
+    },
+    "bottle": {
+      "n": 335,
+      "ocup32_pct_media": 2.5375,
+      "ocup64_pct_media": 1.2401,
+      "nodos32_media": 832.0,
+      "nodos64_media": 3251.0,
+      "t_total_media_ms": 6.3415,
+      "mem32_total_mb": 41.88,
+      "mem64_total_mb": 335.0
+    },
+    "bowl": {
+      "n": 64,
+      "ocup32_pct_media": 8.1923,
+      "ocup64_pct_media": 3.2975,
+      "nodos32_media": 2684.0,
+      "nodos64_media": 8644.0,
+      "t_total_media_ms": 5.7183,
+      "mem32_total_mb": 8.0,
+      "mem64_total_mb": 64.0
+    },
+    "car": {
+      "n": 197,
+      "ocup32_pct_media": 5.0477,
+      "ocup64_pct_media": 2.4453,
+      "nodos32_media": 1654.0,
+      "nodos64_media": 6410.0,
+      "t_total_media_ms": 17.1648,
+      "mem32_total_mb": 24.62,
+      "mem64_total_mb": 197.0
+    },
+    "chair": {
+      "n": 889,
+      "ocup32_pct_media": 4.0796,
+      "ocup64_pct_media": 1.922,
+      "nodos32_media": 1337.0,
+      "nodos64_media": 5038.0,
+      "t_total_media_ms": 7.7554,
+      "mem32_total_mb": 111.12,
+      "mem64_total_mb": 889.0
+    },
+    "cone": {
+      "n": 167,
+      "ocup32_pct_media": 4.3601,
+      "ocup64_pct_media": 1.8945,
+      "nodos32_media": 1429.0,
+      "nodos64_media": 4966.0,
+      "t_total_media_ms": 5.0832,
+      "mem32_total_mb": 20.88,
+      "mem64_total_mb": 167.0
+    },
+    "cup": {
+      "n": 79,
+      "ocup32_pct_media": 8.5956,
+      "ocup64_pct_media": 3.3227,
+      "nodos32_media": 2817.0,
+      "nodos64_media": 8710.0,
+      "t_total_media_ms": 5.6789,
+      "mem32_total_mb": 9.88,
+      "mem64_total_mb": 79.0
+    },
+    "curtain": {
+      "n": 138,
+      "ocup32_pct_media": 2.118,
+      "ocup64_pct_media": 1.0279,
+      "nodos32_media": 694.0,
+      "nodos64_media": 2695.0,
+      "t_total_media_ms": 15.0131,
+      "mem32_total_mb": 17.25,
+      "mem64_total_mb": 138.0
+    },
+    "desk": {
+      "n": 200,
+      "ocup32_pct_media": 5.7451,
+      "ocup64_pct_media": 2.7408,
+      "nodos32_media": 1883.0,
+      "nodos64_media": 7185.0,
+      "t_total_media_ms": 6.3134,
+      "mem32_total_mb": 25.0,
+      "mem64_total_mb": 200.0
+    },
+    "door": {
+      "n": 109,
+      "ocup32_pct_media": 2.7664,
+      "ocup64_pct_media": 1.4303,
+      "nodos32_media": 906.0,
+      "nodos64_media": 3750.0,
+      "t_total_media_ms": 5.3001,
+      "mem32_total_mb": 13.62,
+      "mem64_total_mb": 109.0
+    },
+    "dresser": {
+      "n": 200,
+      "ocup32_pct_media": 10.1845,
+      "ocup64_pct_media": 3.8409,
+      "nodos32_media": 3337.0,
+      "nodos64_media": 10069.0,
+      "t_total_media_ms": 6.7944,
+      "mem32_total_mb": 25.0,
+      "mem64_total_mb": 200.0
+    },
+    "flower_pot": {
+      "n": 149,
+      "ocup32_pct_media": 6.7433,
+      "ocup64_pct_media": 2.634,
+      "nodos32_media": 2210.0,
+      "nodos64_media": 6905.0,
+      "t_total_media_ms": 9.6617,
+      "mem32_total_mb": 18.62,
+      "mem64_total_mb": 149.0
+    },
+    "glass_box": {
+      "n": 171,
+      "ocup32_pct_media": 10.1316,
+      "ocup64_pct_media": 4.0936,
+      "nodos32_media": 3320.0,
+      "nodos64_media": 10731.0,
+      "t_total_media_ms": 4.9183,
+      "mem32_total_mb": 21.38,
+      "mem64_total_mb": 171.0
+    },
+    "guitar": {
+      "n": 155,
+      "ocup32_pct_media": 0.8529,
+      "ocup64_pct_media": 0.4326,
+      "nodos32_media": 279.0,
+      "nodos64_media": 1134.0,
+      "t_total_media_ms": 11.5175,
+      "mem32_total_mb": 19.38,
+      "mem64_total_mb": 155.0
+    },
+    "keyboard": {
+      "n": 145,
+      "ocup32_pct_media": 2.3532,
+      "ocup64_pct_media": 1.2978,
+      "nodos32_media": 771.0,
+      "nodos64_media": 3402.0,
+      "t_total_media_ms": 9.6479,
+      "mem32_total_mb": 18.12,
+      "mem64_total_mb": 145.0
+    },
+    "lamp": {
+      "n": 124,
+      "ocup32_pct_media": 2.463,
+      "ocup64_pct_media": 1.1445,
+      "nodos32_media": 807.0,
+      "nodos64_media": 3000.0,
+      "t_total_media_ms": 5.4869,
+      "mem32_total_mb": 15.5,
+      "mem64_total_mb": 124.0
+    },
+    "laptop": {
+      "n": 149,
+      "ocup32_pct_media": 5.4849,
+      "ocup64_pct_media": 2.6445,
+      "nodos32_media": 1797.0,
+      "nodos64_media": 6932.0,
+      "t_total_media_ms": 6.0616,
+      "mem32_total_mb": 18.62,
+      "mem64_total_mb": 149.0
+    },
+    "mantel": {
+      "n": 284,
+      "ocup32_pct_media": 6.8526,
+      "ocup64_pct_media": 3.1109,
+      "nodos32_media": 2245.0,
+      "nodos64_media": 8155.0,
+      "t_total_media_ms": 7.8854,
+      "mem32_total_mb": 35.5,
+      "mem64_total_mb": 284.0
+    },
+    "monitor": {
+      "n": 465,
+      "ocup32_pct_media": 4.9241,
+      "ocup64_pct_media": 2.3192,
+      "nodos32_media": 1614.0,
+      "nodos64_media": 6080.0,
+      "t_total_media_ms": 4.9991,
+      "mem32_total_mb": 58.12,
+      "mem64_total_mb": 465.0
+    },
+    "night_stand": {
+      "n": 200,
+      "ocup32_pct_media": 9.6645,
+      "ocup64_pct_media": 3.745,
+      "nodos32_media": 3167.0,
+      "nodos64_media": 9817.0,
+      "t_total_media_ms": 5.2768,
+      "mem32_total_mb": 25.0,
+      "mem64_total_mb": 200.0
+    },
+    "person": {
+      "n": 88,
+      "ocup32_pct_media": 1.7486,
+      "ocup64_pct_media": 0.8783,
+      "nodos32_media": 573.0,
+      "nodos64_media": 2302.0,
+      "t_total_media_ms": 7.1203,
+      "mem32_total_mb": 11.0,
+      "mem64_total_mb": 88.0
+    },
+    "piano": {
+      "n": 231,
+      "ocup32_pct_media": 5.8803,
+      "ocup64_pct_media": 2.5706,
+      "nodos32_media": 1927.0,
+      "nodos64_media": 6739.0,
+      "t_total_media_ms": 7.1203,
+      "mem32_total_mb": 28.88,
+      "mem64_total_mb": 231.0
+    },
+    "plant": {
+      "n": 240,
+      "ocup32_pct_media": 4.3021,
+      "ocup64_pct_media": 1.6641,
+      "nodos32_media": 1410.0,
+      "nodos64_media": 4362.0,
+      "t_total_media_ms": 10.9488,
+      "mem32_total_mb": 30.0,
+      "mem64_total_mb": 240.0
+    },
+    "radio": {
+      "n": 104,
+      "ocup32_pct_media": 4.9478,
+      "ocup64_pct_media": 2.2325,
+      "nodos32_media": 1621.0,
+      "nodos64_media": 5852.0,
+      "t_total_media_ms": 6.9723,
+      "mem32_total_mb": 13.0,
+      "mem64_total_mb": 104.0
+    },
+    "range_hood": {
+      "n": 115,
+      "ocup32_pct_media": 6.2058,
+      "ocup64_pct_media": 2.66,
+      "nodos32_media": 2034.0,
+      "nodos64_media": 6973.0,
+      "t_total_media_ms": 5.4338,
+      "mem32_total_mb": 14.38,
+      "mem64_total_mb": 115.0
+    },
+    "sink": {
+      "n": 128,
+      "ocup32_pct_media": 4.7636,
+      "ocup64_pct_media": 2.1844,
+      "nodos32_media": 1561.0,
+      "nodos64_media": 5726.0,
+      "t_total_media_ms": 6.2957,
+      "mem32_total_mb": 16.0,
+      "mem64_total_mb": 128.0
+    },
+    "sofa": {
+      "n": 680,
+      "ocup32_pct_media": 6.1547,
+      "ocup64_pct_media": 2.7555,
+      "nodos32_media": 2017.0,
+      "nodos64_media": 7223.0,
+      "t_total_media_ms": 7.0015,
+      "mem32_total_mb": 85.0,
+      "mem64_total_mb": 680.0
+    },
+    "stairs": {
+      "n": 124,
+      "ocup32_pct_media": 3.7287,
+      "ocup64_pct_media": 1.7372,
+      "nodos32_media": 1222.0,
+      "nodos64_media": 4554.0,
+      "t_total_media_ms": 8.2872,
+      "mem32_total_mb": 15.5,
+      "mem64_total_mb": 124.0
+    },
+    "stool": {
+      "n": 90,
+      "ocup32_pct_media": 3.109,
+      "ocup64_pct_media": 1.491,
+      "nodos32_media": 1019.0,
+      "nodos64_media": 3909.0,
+      "t_total_media_ms": 5.5777,
+      "mem32_total_mb": 11.25,
+      "mem64_total_mb": 90.0
+    },
+    "table": {
+      "n": 392,
+      "ocup32_pct_media": 5.1222,
+      "ocup64_pct_media": 2.4586,
+      "nodos32_media": 1678.0,
+      "nodos64_media": 6445.0,
+      "t_total_media_ms": 5.8039,
+      "mem32_total_mb": 49.0,
+      "mem64_total_mb": 392.0
+    },
+    "tent": {
+      "n": 163,
+      "ocup32_pct_media": 4.9553,
+      "ocup64_pct_media": 2.1585,
+      "nodos32_media": 1624.0,
+      "nodos64_media": 5658.0,
+      "t_total_media_ms": 8.0869,
+      "mem32_total_mb": 20.38,
+      "mem64_total_mb": 163.0
+    },
+    "toilet": {
+      "n": 344,
+      "ocup32_pct_media": 7.0697,
+      "ocup64_pct_media": 3.0082,
+      "nodos32_media": 2317.0,
+      "nodos64_media": 7886.0,
+      "t_total_media_ms": 7.0424,
+      "mem32_total_mb": 43.0,
+      "mem64_total_mb": 344.0
+    },
+    "tv_stand": {
+      "n": 267,
+      "ocup32_pct_media": 7.2972,
+      "ocup64_pct_media": 3.154,
+      "nodos32_media": 2391.0,
+      "nodos64_media": 8268.0,
+      "t_total_media_ms": 5.2164,
+      "mem32_total_mb": 33.38,
+      "mem64_total_mb": 267.0
+    },
+    "vase": {
+      "n": 475,
+      "ocup32_pct_media": 6.8004,
+      "ocup64_pct_media": 2.7471,
+      "nodos32_media": 2228.0,
+      "nodos64_media": 7201.0,
+      "t_total_media_ms": 6.1275,
+      "mem32_total_mb": 59.38,
+      "mem64_total_mb": 475.0
+    },
+    "wardrobe": {
+      "n": 87,
+      "ocup32_pct_media": 6.3975,
+      "ocup64_pct_media": 2.808,
+      "nodos32_media": 2096.0,
+      "nodos64_media": 7361.0,
+      "t_total_media_ms": 4.5978,
+      "mem32_total_mb": 10.88,
+      "mem64_total_mb": 87.0
+    },
+    "xbox": {
+      "n": 103,
+      "ocup32_pct_media": 5.2602,
+      "ocup64_pct_media": 2.3761,
+      "nodos32_media": 1724.0,
+      "nodos64_media": 6229.0,
+      "t_total_media_ms": 6.0708,
+      "mem32_total_mb": 12.88,
+      "mem64_total_mb": 103.0
+    }
+  }
+}
