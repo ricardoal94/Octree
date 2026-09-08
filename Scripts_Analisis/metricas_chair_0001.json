@@ -1,0 +1,67 @@
+{
+  "lectura": {
+    "descripcion": "Lectura del archivo .off",
+    "n_vertices": 2382,
+    "n_caras": 2234,
+    "t_media_ms": 4.0815,
+    "t_min_ms": 3.6403,
+    "t_max_ms": 5.227,
+    "mem_pico_kb": 875.7,
+    "mem_vertices_kb": 27.91,
+    "mem_caras_kb": 52.36
+  },
+  "normalizacion": {
+    "descripcion": "Normalizacion al cubo [-1,1]^3",
+    "t_media_ms": 0.0507,
+    "t_min_ms": 0.0411,
+    "t_max_ms": 0.0667,
+    "mem_pico_kb": 57.56,
+    "mem_salida_kb": 27.91
+  },
+  "muestreo": {
+    "descripcion": "Muestreo area-weighted (30,000 puntos)",
+    "n_puntos": 30000,
+    "t_media_ms": 3.7877,
+    "t_min_ms": 3.7509,
+    "t_max_ms": 3.9123,
+    "mem_pico_kb": 2726.66,
+    "mem_nube_kb": 351.56
+  },
+  "voxel_32": {
+    "descripcion": "Cuantizacion a grid 32^3",
+    "resolucion": 32,
+    "total_celdas": 32768,
+    "celdas_ocup": 767,
+    "pct_ocupacion": 2.341,
+    "t_media_ms": 0.6179,
+    "t_min_ms": 0.5525,
+    "t_max_ms": 0.6635,
+    "mem_pico_kb": 1407.91,
+    "mem_grid_kb": 128.0,
+    "mem_grid_mb": 0.125
+  },
+  "voxel_64": {
+    "descripcion": "Cuantizacion a grid 64^3",
+    "resolucion": 64,
+    "total_celdas": 262144,
+    "celdas_ocup": 2627,
+    "pct_ocupacion": 1.002,
+    "t_media_ms": 0.6821,
+    "t_min_ms": 0.6636,
+    "t_max_ms": 0.6938,
+    "mem_pico_kb": 1731.11,
+    "mem_grid_kb": 1024.0,
+    "mem_grid_mb": 1.0
+  },
+  "pipeline_completo": {
+    "descripcion": "Pipeline completo (lectura + norm + muestreo + vox32 + vox64)",
+    "t_media_ms": 9.2468,
+    "t_min_ms": 8.9124,
+    "t_max_ms": 9.7538,
+    "mem_pico_kb": 2169.9,
+    "mem_pico_mb": 2.119
+  },
+  "archivo": "chair_0001.off",
+  "n_puntos_muestreo": 30000,
+  "repeticiones": 10
+}
