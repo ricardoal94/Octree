@@ -1,0 +1,34 @@
+# ============================================================
+# requirements.txt — Proyecto Octree / ModelNet40
+# Instalar con: pip install -r requirements.txt
+#
+# Nota GPU: si se dispone de GPU NVIDIA, instalar antes torch
+# con soporte CUDA segun la version del driver, por ejemplo:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+# y luego correr este archivo (pip no reinstalara torch si ya
+# esta presente en una version compatible).
+# ============================================================
+
+# ── Deep Learning ─────────────────────────────────────────────
+torch>=2.0.0
+torchvision>=0.15.0
+
+# ── Computo cientifico ────────────────────────────────────────
+numpy>=1.24.0
+scipy>=1.10.0
+
+# ── Machine Learning clasico (SVM, Random Forest) ─────────────
+scikit-learn>=1.3.0
+joblib>=1.3.0
+
+# ── Configuracion y formatos de datos ─────────────────────────
+pyyaml>=6.0
+
+# ── Progreso / barras de carga ─────────────────────────────────
+tqdm>=4.65.0
+
+# ── Visualizacion (graficas 2D/3D, figuras del pipeline y resultados) ──
+matplotlib>=3.7.0
+
+# ── Manejo de imagenes (renders 2D del experimento Img2Voxel) ──
+Pillow>=10.0.0
