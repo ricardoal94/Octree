@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from octree import (
     leer_off, normalizar_malla, muestrear_superficie_con_normales,
-    construir_grid_octree, profundidad_de,
+    construir_grid_octree, profundidad_de, nivel_hoja,
 )
 
 
@@ -68,7 +68,7 @@ def graficar_pipeline(ruta_off: str, resolucion: int = 32, seed: int = 42):
     pct = 100 * len(idx_ocupadas) / ocupacion.size
     ax3.scatter(coords_centro[:, 0], coords_centro[:, 1], coords_centro[:, 2],
                 s=8, alpha=0.6, color="seagreen", marker="s")
-    ax3.set_title(f"3. Octree {R}^3 (L={profundidad_de(R)})\n"
+    ax3.set_title(f"3. Octree {R}^3 (L={nivel_hoja(R)}, hoja)\n"
                   f"{len(idx_ocupadas):,} celdas ocupadas ({pct:.1f}%)")
     ax3.set_xlim(-1, 1); ax3.set_ylim(-1, 1); ax3.set_zlim(-1, 1)
 
