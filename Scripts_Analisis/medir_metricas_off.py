@@ -109,10 +109,28 @@ def muestrear_superficie(verts, caras, n, seed):
 
 
 def voxelizar(pts, R):
+    """
+    Grid de OCUPACION de un solo canal (R,R,R), usado unicamente para
+    calcular metricas de ocupacion (pct de celdas ocupadas). NO es el
+    tensor real que guarda preprocesar_octrees.py: ese tensor tiene 4
+    canales (ocupacion + nx,ny,nz), ver MEM_4CANALES_* mas abajo.
+    """
     idx = np.clip(((pts + 1.0) * 0.5 * R).astype(np.int64), 0, R-1)
     g = np.zeros((R, R, R), dtype=np.float32)
     g[idx[:,0], idx[:,1], idx[:,2]] = 1.0
     return g
+
+
+# Memoria del tensor REAL guardado por preprocesar_octrees.py y usado
+# por HCE y Net5: 4 canales float32 (ocupacion, nx, ny, nz).
+# Esta es la cifra que debe citarse como "almacenamiento del pipeline".
+MEM_4CANALES_32_KB = 4 * 32**3 * 4 / 1024   # = 512.0 KB
+MEM_4CANALES_64_KB = 4 * 64**3 * 4 / 1024   # = 4096.0 KB = 4.0 MB
+
+# Memoria de la grilla de OCUPACION de 1 solo canal (auxiliar, solo
+# para referencia / comparacion, NO es lo que se guarda en disco).
+MEM_1CANAL_32_KB = 32**3 * 4 / 1024   # = 128.0 KB
+MEM_1CANAL_64_KB = 64**3 * 4 / 1024   # = 1024.0 KB = 1.0 MB
 
 
 # ──────────────────────────────────────────────────────────────
@@ -133,7 +151,7 @@ def procesar_archivo(args: tuple) -> dict:
         pts = muestrear_superficie(verts, caras, N_PUNTOS_MUESTREO, SEED)
         t_preproceso_ms = (time.perf_counter() - t0) * 1000
 
-        # Voxelizacion 32^3
+        # Voxelizacion 32^3 (grid de ocupacion, 1 canal, solo para metricas)
         t0 = time.perf_counter()
         g32 = voxelizar(pts, 32)
         t_vox32_ms = (time.perf_counter() - t0) * 1000
@@ -149,10 +167,6 @@ def procesar_archivo(args: tuple) -> dict:
         pct32 = round(100 * ocup32 / g32.size, 4)
         pct64 = round(100 * ocup64 / g64.size, 4)
 
-        # Memoria de los grids (float32 = 4 bytes por celda)
-        mem32_kb = round(g32.size * 4 / 1024, 2)   # 32^3 * 4 = 131 KB
-        mem64_kb = round(g64.size * 4 / 1024, 2)   # 64^3 * 4 = 1024 KB = 1 MB
-
         return {
             "nombre": nombre,
             "clase": clase,
@@ -167,8 +181,16 @@ def procesar_archivo(args: tuple) -> dict:
             "ocup32_pct":  pct32,
             "ocup64_abs":  ocup64,
             "ocup64_pct":  pct64,
-            "mem32_kb":    mem32_kb,
-            "mem64_kb":    mem64_kb,
+            # Memoria del tensor REAL de 4 canales (el que efectivamente
+            # se guarda en disco y se usa en HCE/Net5). Es la cifra
+            # correcta para reportar como "almacenamiento del pipeline".
+            "mem32_4canales_kb": round(MEM_4CANALES_32_KB, 2),
+            "mem64_4canales_kb": round(MEM_4CANALES_64_KB, 2),
+            # Memoria de la grilla de ocupacion de 1 canal (auxiliar,
+            # NO es lo que se guarda en disco; se mantiene solo por
+            # trazabilidad con versiones previas del script).
+            "mem32_1canal_kb": round(MEM_1CANAL_32_KB, 2),
+            "mem64_1canal_kb": round(MEM_1CANAL_64_KB, 2),
             "error":       None,
         }
 
@@ -225,11 +247,25 @@ def calcular_resumen(resultados: list) -> dict:
             "std":     round(float(vals.std()), 4),
         }
 
-    # Memoria fija (igual para todos)
-    resumen["mem32_kb_por_objeto"] = round(32**3 * 4 / 1024, 2)
-    resumen["mem64_kb_por_objeto"] = round(64**3 * 4 / 1024, 2)
-    resumen["mem32_dataset_mb"] = round(len(validos) * 32**3 * 4 / 1024**2, 1)
-    resumen["mem64_dataset_mb"] = round(len(validos) * 64**3 * 4 / 1024**2, 1)
+    # ── Almacenamiento del TENSOR REAL (4 canales: ocupacion + nx,ny,nz) ──
+    # Esta es la cifra correcta de "almacenamiento del pipeline", ya
+    # que es el tensor que efectivamente guarda preprocesar_octrees.py
+    # y consumen HCE y Net5. Fija por objeto (no depende de la muestra).
+    resumen["mem32_4canales_kb_por_objeto"] = round(MEM_4CANALES_32_KB, 2)
+    resumen["mem64_4canales_kb_por_objeto"] = round(MEM_4CANALES_64_KB, 2)
+    resumen["mem32_4canales_dataset_mb"] = round(
+        len(validos) * MEM_4CANALES_32_KB / 1024, 1)
+    resumen["mem64_4canales_dataset_mb"] = round(
+        len(validos) * MEM_4CANALES_64_KB / 1024, 1)
+
+    # ── Grilla de ocupacion de 1 solo canal (auxiliar, NO es lo que se
+    # guarda en disco; se mantiene solo por referencia/comparacion) ──
+    resumen["mem32_1canal_kb_por_objeto"] = round(MEM_1CANAL_32_KB, 2)
+    resumen["mem64_1canal_kb_por_objeto"] = round(MEM_1CANAL_64_KB, 2)
+    resumen["mem32_1canal_dataset_mb"] = round(
+        len(validos) * MEM_1CANAL_32_KB / 1024, 1)
+    resumen["mem64_1canal_dataset_mb"] = round(
+        len(validos) * MEM_1CANAL_64_KB / 1024, 1)
 
     return resumen
 
@@ -297,7 +333,8 @@ def main():
     campos = ["nombre","clase","split","n_vertices","n_caras",
               "t_preproceso_ms","t_vox32_ms","t_vox64_ms","t_total_ms",
               "ocup32_abs","ocup32_pct","ocup64_abs","ocup64_pct",
-              "mem32_kb","mem64_kb"]
+              "mem32_4canales_kb","mem64_4canales_kb",
+              "mem32_1canal_kb","mem64_1canal_kb"]
     with open(csv_completo, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=campos)
         w.writeheader()
@@ -347,10 +384,24 @@ def main():
         print(f"  Tiempo total/objeto (ms): "
               f"media={resumen_global['t_total_ms']['media']:.1f}, "
               f"max={resumen_global['t_total_ms']['max']:.1f}")
-        print(f"\n  Memoria 32^3/objeto     : {resumen_global['mem32_kb_por_objeto']} KB")
-        print(f"  Memoria 64^3/objeto     : {resumen_global['mem64_kb_por_objeto']} KB")
-        print(f"  Memoria 32^3 dataset    : {resumen_global['mem32_dataset_mb']} MB")
-        print(f"  Memoria 64^3 dataset    : {resumen_global['mem64_dataset_mb']} MB")
+
+        print(f"\n  ── Almacenamiento estimado (tensor REAL, 4 canales:"
+              f" ocupacion + nx,ny,nz) ──")
+        print(f"  Por objeto 32^3         : "
+              f"{resumen_global['mem32_4canales_kb_por_objeto']} KB")
+        print(f"  Por objeto 64^3         : "
+              f"{resumen_global['mem64_4canales_kb_por_objeto']} KB")
+        print(f"  Dataset completo 32^3   : "
+              f"{resumen_global['mem32_4canales_dataset_mb']} MB")
+        print(f"  Dataset completo 64^3   : "
+              f"{resumen_global['mem64_4canales_dataset_mb']} MB")
+
+        print(f"\n  ── Grilla de ocupacion auxiliar (1 canal, NO es lo"
+              f" que se guarda en disco) ──")
+        print(f"  Por objeto 32^3         : "
+              f"{resumen_global['mem32_1canal_kb_por_objeto']} KB")
+        print(f"  Por objeto 64^3         : "
+              f"{resumen_global['mem64_1canal_kb_por_objeto']} KB")
     print("=" * 60)
 
 
