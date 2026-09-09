@@ -8,11 +8,20 @@ Descriptores extraidos (segun metodologia: "ocupacion de nodos por nivel
 y momentos geometricos de la estructura del arbol"):
 
   A) Ocupacion jerarquica por nivel:
-     El grid denso de resolucion R (nivel hoja, profundidad L) se puede
-     reconstruir hacia niveles superiores del octree agregando bloques de
-     2x2x2 (max-pool de ocupacion). Para cada nivel l = 1..L se calcula
-     el porcentaje de nodos ocupados respecto al total de ese nivel.
-     Esto produce L valores escalares (5 para resolucion 32, 6 para 64).
+     El grid denso de resolucion R (nivel hoja) se puede reconstruir
+     hacia niveles superiores del octree agregando bloques de 2x2x2
+     (max-pool de ocupacion), hasta alcanzar la resolucion 2^3 (sin
+     llegar a 1^3). Esto produce un numero fijo de valores escalares
+     por resolucion: 5 para R=32, 6 para R=64 (variable `profundidad`
+     en el codigo).
+
+     IMPORTANTE - convencion de etiquetado (no afecta el calculo):
+     bajo la convencion documental acordada, la raiz conceptual del
+     octree se identifica como L=0 en resolucion 2^3 (R = 2^(L+1)).
+     Bajo esa convencion, la hoja de 32^3 corresponde a L=4 y la hoja
+     de 64^3 a L=5 (ver nombres_features() y octree.py::nivel_hoja()).
+     El numero de valores calculados NO cambia; solo cambia la
+     etiqueta L con la que se nombra cada uno en nombres_features().
 
   B) Momentos geometricos globales (sobre las celdas ocupadas del nivel
      hoja, tratando sus coordenadas como una nube de puntos discreta):
@@ -26,10 +35,10 @@ y momentos geometricos de la estructura del arbol"):
        (mide cuan "plana"/coherente es la superficie capturada)
      - Varianza de las normales (mide rugosidad/variabilidad)
 
-Total de features: L (ocupacion por nivel) + 10 (momentos geometricos)
-+ 2 (estadisticas de normales) = L + 12
-  Para R=32 (L=5): 17 features
-  Para R=64 (L=6): 18 features
+Total de features: profundidad (ocupacion por nivel) + 10 (momentos
+geometricos) + 2 (estadisticas de normales) = profundidad + 12
+  Para R=32 (5 niveles, etiquetados L=0..L=4): 17 features
+  Para R=64 (6 niveles, etiquetados L=0..L=5): 18 features
 """
 
 import numpy as np
@@ -172,10 +181,21 @@ def extraer_descriptores_hce(grid: np.ndarray, profundidad: int) -> np.ndarray:
 
 
 def nombres_features(profundidad: int) -> list:
-    """Retorna los nombres descriptivos de cada feature, en el mismo
+    """
+    Retorna los nombres descriptivos de cada feature, en el mismo
     orden que produce extraer_descriptores_hce(). Util para interpretar
-    feature_importances_ del Random Forest."""
-    nombres = [f"ocupacion_nivel_{i+1}" for i in range(profundidad)]
+    feature_importances_ del Random Forest.
+
+    Convencion de nivel: ocupacion_por_nivel() calcula el % de ocupacion
+    empezando en la resolucion hoja (mas fina) y terminando en 2^3 (la
+    resolucion mas gruesa alcanzada, sin llegar a 1^3). Bajo la
+    convencion documental de raiz L=0 (R = 2^(L+1)):
+        indice 0            -> L = profundidad - 1  (hoja, mas fina)
+        indice profundidad-1 -> L = 0                (2^3, la mas gruesa)
+    Para 32^3 (profundidad=5): L=4 (hoja) descendiendo hasta L=0 (2^3).
+    Para 64^3 (profundidad=6): L=5 (hoja) descendiendo hasta L=0 (2^3).
+    """
+    nombres = [f"ocupacion_L{profundidad - 1 - i}" for i in range(profundidad)]
     nombres += ["centroide_x", "centroide_y", "centroide_z",
                 "varianza_x", "varianza_y", "varianza_z",
                 "dispersion_radial",
