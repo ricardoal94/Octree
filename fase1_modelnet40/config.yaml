@@ -1,7 +1,12 @@
 project:
-  name: "ModelNet40 - Clasificacion 3D con PointNet"
+  name: "ModelNet40 - Clasificacion 3D mediante representaciones de Octree"
   fase: 1
-  descripcion: "Definicion del caso de estudio y control de estocasticidad"
+  descripcion: >
+    Definicion del caso de estudio y control de estocasticidad.
+    Comparacion de un enfoque clasico (HCE: descriptores manuales +
+    SVM / Random Forest) contra un enfoque profundo (Net5-Octree:
+    3D-CNN jerarquica) sobre representaciones voxelizadas de octree
+    en resoluciones 32^3 y 64^3.
 
 reproducibilidad:
   seed: 42
@@ -13,32 +18,63 @@ dataset:
   clases: 40
   train_total: 9843
   test_total: 2468
-  val_split: 0.10        # 10% del train para validacion interna
-  num_points: 1024       # puntos por nube de puntos
-  data_augmentation: true
+  val_split: 0.10          # 10% del train para validacion interna
+  # NOTA: sin aumento de datos en ningun enfoque (HCE ni Net5-Octree),
+  # por criterio de equivalencia experimental (seccion 6.6 de la
+  # metodologia): se busca aislar el efecto de la resolucion del
+  # octree, no el efecto de la aumentacion.
+  data_augmentation: false
 
-modelo:
-  nombre: "Net5_PointNet"
-  input_channels: 3      # x, y, z
-  feature_dim: 1024
-  num_clases: 40
-  dropout: 0.3
+octree:
+  # Parametros del pipeline de conversion .off -> octree (Fase 2)
+  n_puntos_muestreo: 20000   # puntos muestreados por objeto (area-weighted)
+  resoluciones: [32, 64]     # resoluciones evaluadas
+  canales_grid: 4            # [ocupacion, nx, ny, nz]
+  # Convencion documental de nivel: raiz conceptual L=0 en 2^3 (8 nodos),
+  # R = 2^(L+1). Hoja 32^3 -> L=4. Hoja 64^3 -> L=5.
+  nivel_hoja:
+    32: 4
+    64: 5
 
-entrenamiento:
-  batch_size: 32
-  epochs: 200
-  learning_rate: 0.001
-  optimizer: "Adam"
-  scheduler: "StepLR"
-  step_size: 20
-  gamma: 0.7
-  weight_decay: 0.0001
+hce:
+  # Hand-Crafted Extraction: descriptores manuales sobre el grid de octree
+  descripcion: >
+    Ocupacion jerarquica por nivel (L variable segun resolucion) +
+    10 momentos geometricos (centroide, varianza, dispersion radial,
+    skewness) + 2 estadisticas del vector normal promedio.
+  n_features:
+    32: 17    # 5 niveles de ocupacion + 12
+    64: 18    # 6 niveles de ocupacion + 12
+
+svm:
+  kernel: "rbf"
+  busqueda_hiperparametros:
+    C: [0.1, 1, 10, 100]
+    gamma: ["scale", 0.001, 0.01, 0.1]
+  cv: 3                     # validacion cruzada en GridSearchCV
+  random_state: 42
 
 bosque_aleatorio:
   n_estimators: 100
   max_depth: null
   min_samples_split: 2
-  random_state: 42       # misma seed global
+  random_state: 42          # misma seed global
+
+net5_octree:
+  # Red convolucional 3D jerarquica que opera sobre el grid de octree
+  nombre: "Net5-Octree"
+  in_channels: 4             # [ocupacion, nx, ny, nz]
+  num_clases: 40
+  dropout: 0.3
+  batch_size: 16
+  epochs_max: 200
+  early_stopping_patience: 20
+  learning_rate: 0.001
+  optimizer: "Adam"
+  weight_decay: 0.0001
+  scheduler: "StepLR"
+  step_size: 20
+  gamma: 0.7
 
 hardware:
   dispositivo: "auto"    # "cuda" si disponible, sino "cpu"
@@ -51,12 +87,17 @@ librerias:
   torchvision: ">=0.15.0"
   numpy: ">=1.24.0"
   scikit-learn: ">=1.3.0"
+  joblib: ">=1.3.0"
   pyyaml: ">=6.0"
   tqdm: ">=4.65.0"
-  open3d: ">=0.17.0"
+  matplotlib: ">=3.7.0"   # visualizacion 3D (reemplaza open3d, incompatible con Python 3.12)
+  pillow: ">=10.0.0"      # solo para experimento adicional Img2Voxel
 
 rutas:
-  dataset_root: "./data/modelnet40"
+  dataset_root: "./Dataset/ModelNet40"
+  data_octrees: "./data"
   checkpoints: "./checkpoints"
   logs: "./logs"
+  resultados: "./resultados"
+  registros: "./Registros"
   resultados: "./resultados"
