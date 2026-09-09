@@ -7,7 +7,9 @@ mallas .OFF de ModelNet40.
 Flujo determinista (segun metodologia):
     1. Normalizacion   : escalado al cubo unitario [-1,1]^3, centrado en origen
     2. Muestreo         : nube de puntos uniforme sobre la superficie (area-weighted)
-    3. Cuantizacion     : octree de profundidad L=5 (32^3) o L=6 (64^3)
+    3. Cuantizacion     : grid denso equivalente al nivel hoja de un octree
+                          cuya raiz se identifica como L=0 (2^3, 8 nodos),
+                          con R = 2^(L+1). Hoja L=4 para 32^3, L=5 para 64^3.
     4. Codificacion     : cada nodo hoja almacena ocupacion + vector normal promedio
 
 La representacion final es un grid denso (voxel grid) de resolucion 2^L,
@@ -171,12 +173,28 @@ def muestrear_superficie_con_normales(
 
 # ──────────────────────────────────────────────────────────────
 # 4. CUANTIZACION JERARQUICA + CODIFICACION
-#    Octree de profundidad L => grid denso de resolucion R = 2^L
+#    Grid denso de resolucion R, equivalente al nivel hoja de un
+#    octree cuya raiz se identifica como L=0 (convencion documental:
+#    R = 2^(L+1), donde L=0 -> 2^3 con 8 nodos).
 #    Canal 0: ocupacion binaria
 #    Canales 1-3: vector normal promedio de los puntos en esa celda
 # ──────────────────────────────────────────────────────────────
 
-# Profundidad de octree segun resolucion (R = 2^L)
+# IMPORTANTE - dos convenciones distintas, no intercambiables:
+#
+# 1) PROFUNDIDAD_POR_RESOLUCION: numero de ITERACIONES usado
+#    internamente por ocupacion_por_nivel() (hce_extraccion.py) para
+#    reconstruir la jerarquia desde la hoja hasta 2^3 (sin llegar a
+#    1^3). Este valor NO debe reinterpretarse como una etiqueta "L".
+#    Se mantiene por compatibilidad con el codigo de extraccion HCE
+#    ya validado.
+#
+# 2) nivel_hoja(R): la etiqueta "L" que se presenta en el documento
+#    de tesis y en las figuras, bajo la convencion acordada con el
+#    profesor: la raiz conceptual es L=0 (resolucion 2^3, 8 nodos),
+#    y R = 2^(L+1). Bajo esta convencion, la hoja de 32^3 es L=4 y
+#    la hoja de 64^3 es L=5. Esta es la UNICA convencion que debe
+#    aparecer en texto, figuras y nombres de columnas del documento.
 PROFUNDIDAD_POR_RESOLUCION = {32: 5, 64: 6}
 
 
@@ -231,8 +249,103 @@ def construir_grid_octree(
 
 
 # ──────────────────────────────────────────────────────────────
-# PIPELINE COMPLETO: .off -> grid de octree
+# RELLENO SOLIDO (solo para experimento Img2Voxel)
 # ──────────────────────────────────────────────────────────────
+
+def rellenar_interior_solido(ocupacion: np.ndarray) -> np.ndarray:
+    """
+    Rellena el interior de un objeto voxelizado usando flood fill 3D
+    desde el exterior. Las celdas alcanzables desde el borde del grid
+    son exterior; todo lo demas es interior (y se marca como ocupado).
+
+    Esto convierte una representacion de "cascara superficial" (~1%
+    de ocupacion) a un solido compacto (~10-30% de ocupacion), lo cual
+    es necesario para que el modelo Img2Voxel pueda aprender a
+    reconstruir formas geometricas con un IoU significativo.
+
+    NOTA: Este proceso NO se aplica en el pipeline principal de HCE
+    y Net5 (que usan la superficie original correctamente). Solo se
+    usa para preparar los targets de Img2Voxel.
+    """
+    from scipy.ndimage import label
+
+    R = ocupacion.shape[0]
+
+    # Crear volumen extendido con borde de 1 celda libre (garantiza conectividad exterior)
+    vol = np.zeros((R+2, R+2, R+2), dtype=np.uint8)
+    vol[1:-1, 1:-1, 1:-1] = (ocupacion > 0.5).astype(np.uint8)
+
+    # Invertir: 1=libre, 0=superficie
+    vol_libre = 1 - vol
+
+    # Etiquetar componentes conectados del espacio libre
+    etiquetado, n_comps = label(vol_libre)
+
+    # La etiqueta del exterior es la del voxel (0,0,0) que siempre esta libre
+    etiqueta_exterior = etiquetado[0, 0, 0]
+
+    # Interior = libre pero NO conectado al exterior
+    interior = (vol_libre == 1) & (etiquetado != etiqueta_exterior)
+
+    # Combinar superficie + interior
+    solido = vol.copy()
+    solido[interior] = 1
+
+    # Quitar el borde de padding
+    solido = solido[1:-1, 1:-1, 1:-1].astype(np.float32)
+
+    return solido
+
+
+def construir_grid_octree_solido(
+    puntos: np.ndarray, normales: np.ndarray, resolucion: int,
+) -> np.ndarray:
+    """
+    Igual que construir_grid_octree pero con relleno solido del interior.
+    Produce grids con ~10-30% de ocupacion en vez de ~1%.
+    Usado SOLO en el pipeline de Img2Voxel.
+    """
+    # Primero construir el grid de superficie normal
+    grid = construir_grid_octree(puntos, normales, resolucion)
+
+    # Rellenar el interior
+    ocupacion_solida = rellenar_interior_solido(grid[0])
+
+    # Reemplazar el canal de ocupacion (mantener normales de superficie)
+    grid_solido = grid.copy()
+    grid_solido[0] = ocupacion_solida
+
+    return grid_solido
+
+
+def malla_a_octree_solido(
+    ruta_off: str,
+    resolucion: int = 32,
+    n_puntos_muestreo: int = 20000,
+    seed: int = 42,
+    idx_muestra: int = 0,
+) -> np.ndarray:
+    """
+    Igual que malla_a_octree pero produce un solido (interior relleno).
+    Usado EXCLUSIVAMENTE para preparar los targets del experimento Img2Voxel.
+    No afecta los octrees de HCE ni Net5.
+    """
+    assert resolucion in PROFUNDIDAD_POR_RESOLUCION, \
+        f"Resolucion {resolucion} no soportada. Usar 32 o 64."
+
+    rng = np.random.default_rng(seed + idx_muestra)
+
+    vertices, caras = leer_off(ruta_off)
+    vertices = normalizar_malla(vertices)
+
+    puntos, normales = muestrear_superficie_con_normales(
+        vertices, caras, n_puntos_muestreo, rng,
+    )
+
+    grid = construir_grid_octree_solido(puntos, normales, resolucion)
+
+    return grid
+
 
 def malla_a_octree(
     ruta_off: str,
@@ -276,8 +389,27 @@ def malla_a_octree(
 
 
 def profundidad_de(resolucion: int) -> int:
-    """Retorna la profundidad L del octree para una resolucion dada."""
+    """
+    Retorna el numero de iteraciones usado INTERNAMENTE por
+    ocupacion_por_nivel() para reconstruir la jerarquia de ocupacion
+    (hce_extraccion.py). NO debe usarse como etiqueta "L" en texto
+    o figuras: para eso usar nivel_hoja(resolucion).
+    """
     return PROFUNDIDAD_POR_RESOLUCION[resolucion]
+
+
+def nivel_hoja(resolucion: int) -> int:
+    """
+    Retorna la etiqueta L del nivel hoja bajo la convencion documental
+    acordada: raiz conceptual L=0 en resolucion 2^3 (8 nodos), con
+    R = 2^(L+1). Bajo esta convencion:
+        32^3 -> L=4 (hoja)
+        64^3 -> L=5 (hoja)
+    Esta es la convencion que debe citarse en el documento de tesis,
+    en las figuras y en los nombres de features/columnas expuestas
+    al lector. Es distinta del valor interno de profundidad_de().
+    """
+    return PROFUNDIDAD_POR_RESOLUCION[resolucion] - 1
 
 
 # ──────────────────────────────────────────────────────────────
@@ -307,10 +439,12 @@ if __name__ == "__main__":
         n_ocupadas = int(ocupacion.sum())
         pct_ocupacion = 100 * n_ocupadas / ocupacion.size
 
-        print(f"\n[Resolucion {R}^3]  (L={profundidad_de(R)})")
+        print(f"\n[Resolucion {R}^3]  (L={nivel_hoja(R)}, hoja)")
         print(f"  Shape grid       : {grid.shape}")
         print(f"  Celdas ocupadas  : {n_ocupadas:,} / {ocupacion.size:,} ({pct_ocupacion:.2f}%)")
         print(f"  Tiempo           : {t1 - t0:.3f}s")
         print(f"  Rango normal x   : [{grid[1].min():.3f}, {grid[1].max():.3f}]")
+
+    print("\nPipeline verificado correctamente.")
 
     print("\nPipeline verificado correctamente.")
