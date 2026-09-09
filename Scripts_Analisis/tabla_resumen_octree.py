@@ -32,9 +32,13 @@ from collections import defaultdict
 
 DIR_RESULTADOS = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\resultados")
 
-# Memoria fija por objeto (float32, 4 bytes/celda)
-MEM_32_KB  = 32**3 * 4 / 1024          # 128 KB
-MEM_64_KB  = 64**3 * 4 / 1024          # 1024 KB = 1 MB
+# Memoria del TENSOR REAL guardado por preprocesar_octrees.py:
+# 4 canales float32 (ocupacion, nx, ny, nz), 4 bytes/celda/canal.
+# Esta es la cifra correcta de "almacenamiento del pipeline", ya que
+# es el tensor que efectivamente consumen HCE y Net5 (no la grilla
+# de ocupacion de 1 solo canal usada anteriormente por error).
+MEM_32_KB  = 4 * 32**3 * 4 / 1024      # 512 KB  (4 canales)
+MEM_64_KB  = 4 * 64**3 * 4 / 1024      # 4096 KB = 4 MB  (4 canales)
 MEM_32_MB  = MEM_32_KB / 1024
 MEM_64_MB  = MEM_64_KB / 1024
 
@@ -167,7 +171,7 @@ def imprimir_tabla_consola(stats_clase: dict, stats_global: dict, split: str):
     print("=" * 95)
 
     enc = ["Clase", "N", "Ocup.32³(%)", "Ocup.64³(%)",
-           "Nodos 32³", "Nodos 64³", "T.media(ms)", "Mem.32³(MB)", "Mem.64³(MB)"]
+           "Nodos 32³", "Nodos 64³", "T.media(ms)", "Mem.32³4c(MB)", "Mem.64³4c(MB)"]
     anchos = [14, 5, 12, 12, 10, 10, 13, 12, 12]
     header = "  " + "  ".join(f"{h:<{w}}" for h, w in zip(enc, anchos))
     print(header)
@@ -238,7 +242,7 @@ def graficar_tabla_resumen(stats_clase: dict, stats_global: dict,
     columnas = [
         "Clase", "N", f"Ocup.\n32³ (%)", f"Ocup.\n64³ (%)",
         f"Nodos\n32³", f"Nodos\n64³", "T. media\n(ms)",
-        "Almacen.\n32³ (MB)", "Almacen.\n64³ (MB)",
+        "Almacen.4c\n32³ (MB)", "Almacen.4c\n64³ (MB)",
     ]
 
     clases_presentes = [c for c in CLASES if c in stats_clase]
@@ -297,7 +301,8 @@ def graficar_tabla_resumen(stats_clase: dict, stats_global: dict,
     ax.set_title(
         f"Tabla de ocupación y costo del pipeline de octree — "
         f"ModelNet40 ({split})\n"
-        f"Valores medios por clase | Memoria = float32, 4 bytes/celda",
+        f"Valores medios por clase | Almacenamiento del tensor real de 4 canales "
+        f"(ocupación + nx,ny,nz), float32",
         fontsize=11, pad=18, fontweight="bold",
     )
 
