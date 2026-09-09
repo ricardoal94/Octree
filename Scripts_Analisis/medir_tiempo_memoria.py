@@ -149,8 +149,8 @@ def main():
     )
     parser.add_argument("--off", type=str, required=True,
                         help="Ruta al archivo .off")
-    parser.add_argument("--n_puntos", type=int, default=30000,
-                        help="Puntos a muestrear sobre la superficie (default: 30000)")
+    parser.add_argument("--n_puntos", type=int, default=20000,
+                        help="Puntos a muestrear sobre la superficie (default: 20000)")
     parser.add_argument("--repeticiones", type=int, default=10,
                         help="Repeticiones para estabilizar mediciones de tiempo (default: 10)")
     parser.add_argument("--salida", type=str, default=None,
