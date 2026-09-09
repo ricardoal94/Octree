@@ -307,7 +307,7 @@ def main():
 
     print("\n" + "=" * 60)
     print("  Fase 1 completada exitosamente.")
-    print("  Proxima fase: Implementacion de Net5 (PointNet)")
+    print("  Proxima fase: Construccion de octrees (Fase 2)")
     print("=" * 60)
 
     return cfg, hardware, particion
