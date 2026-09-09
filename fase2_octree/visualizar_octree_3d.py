@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "fase2_octree"))
-from octree import malla_a_octree, profundidad_de
+from octree import malla_a_octree, profundidad_de, nivel_hoja
 
 RAIZ_DATASET = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\Dataset\ModelNet40")
 RAIZ_DATA    = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\data")
@@ -136,7 +136,7 @@ def comparar_resoluciones(ruta_off: str = None, clase: str = None,
         ocupacion = grids[R][0]
         n_ocup = int((ocupacion > 0).sum())
         pct = 100 * n_ocup / ocupacion.size
-        titulo = f"Resolucion {R}^3 (L={profundidad_de(R)})\n{n_ocup:,} celdas ocupadas ({pct:.1f}%)"
+        titulo = f"Resolucion {R}^3 (L={nivel_hoja(R)}, hoja)\n{n_ocup:,} celdas ocupadas ({pct:.1f}%)"
 
         if usar_voxels:
             graficar_voxels_solidos(grids[R], titulo, ax=ax)
