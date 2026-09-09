@@ -80,4 +80,86 @@ test_*.py
 *.local
 
 # ── Archivos de salida temporales de matplotlib/figuras sueltas
+*.svg.tmp# ============================================================
+# .gitignore — Proyecto Octree / ModelNet40
+# ============================================================
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# ── Entornos virtuales ──────────────────────────────────────
+venv/
+env/
+ENV/
+.venv/
+*.venv
+
+# ── Jupyter / IPython ────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Dataset (NO redistribuir) ────────────────────────────────
+Dataset/
+data/
+
+# ── Pesos y checkpoints de modelos (regenerables) ────────────
+checkpoints/
+*.pth
+*.pt
+*.joblib
+*.pkl
+*.h5
+
+# ── Logs de entrenamiento pesados (mantener solo resumenes) ──
+logs/*.csv
+logs/particion_indices.npz
+!logs/.gitkeep
+
+# ── Renders e imagenes generadas en preprocesamiento ─────────
+renders/
+
+# ── Resultados grandes (mantener JSON de resumen, excluir figuras auto-generadas si se desea) ──
+# Descomentar si no se quiere versionar las figuras PNG/SVG generadas:
+# resultados/*.png
+# resultados/*.svg
+
+# ── Credenciales y configuracion local ───────────────────────
+.env
+*.env.local
+config_local.yaml
+secrets.yaml
+*.key
+*.pem
+
+# ── Archivos temporales del sistema ───────────────────────────
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editores / IDEs ───────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ── Rutas locales especificas de la maquina de desarrollo ────
+# (evitar hardcodear, pero por si quedan archivos de prueba)
+test_*.py
+/tmp/
+*.local
+
+# ── Archivos de salida temporales de matplotlib/figuras sueltas
 *.svg.tmp
