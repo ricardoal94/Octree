@@ -390,26 +390,31 @@ def malla_a_octree(
 
 def profundidad_de(resolucion: int) -> int:
     """
-    Retorna el numero de iteraciones usado INTERNAMENTE por
-    ocupacion_por_nivel() para reconstruir la jerarquia de ocupacion
-    (hce_extraccion.py). NO debe usarse como etiqueta "L" en texto
-    o figuras: para eso usar nivel_hoja(resolucion).
+    Retorna la profundidad de hoja L del octree, bajo la convencion
+    matematica estandar confirmada tras implementar el arbol REAL
+    (octree_real.py): raiz = L=0 (un solo nodo, todo el espacio),
+    R = 2^L en cada nivel. Bajo esta convencion:
+        32^3 -> L=5 (hoja)
+        64^3 -> L=6 (hoja)
+    Esta es la misma convencion usada por ocupacion_por_nivel_arbol()
+    en octree_real.py y por nivel_hoja() (alias, ver mas abajo).
     """
     return PROFUNDIDAD_POR_RESOLUCION[resolucion]
 
 
 def nivel_hoja(resolucion: int) -> int:
     """
-    Retorna la etiqueta L del nivel hoja bajo la convencion documental
-    acordada: raiz conceptual L=0 en resolucion 2^3 (8 nodos), con
-    R = 2^(L+1). Bajo esta convencion:
-        32^3 -> L=4 (hoja)
-        64^3 -> L=5 (hoja)
-    Esta es la convencion que debe citarse en el documento de tesis,
-    en las figuras y en los nombres de features/columnas expuestas
-    al lector. Es distinta del valor interno de profundidad_de().
+    Alias de profundidad_de(), mantenido por compatibilidad con codigo
+    y figuras existentes que ya llaman a nivel_hoja(). Desde que se
+    implemento el arbol real (octree_real.py), profundidad_de() y
+    nivel_hoja() son el MISMO valor: la convencion "L=0 en 2^3, 8 nodos"
+    usada anteriormente para las figuras de la rejilla densa quedo
+    reemplazada por la convencion matematica estandar de un octree con
+    raiz unica (ver docstring de octree_real.py).
+        32^3 -> L=5 (hoja)
+        64^3 -> L=6 (hoja)
     """
-    return PROFUNDIDAD_POR_RESOLUCION[resolucion] - 1
+    return PROFUNDIDAD_POR_RESOLUCION[resolucion]
 
 
 # ──────────────────────────────────────────────────────────────
@@ -444,7 +449,5 @@ if __name__ == "__main__":
         print(f"  Celdas ocupadas  : {n_ocupadas:,} / {ocupacion.size:,} ({pct_ocupacion:.2f}%)")
         print(f"  Tiempo           : {t1 - t0:.3f}s")
         print(f"  Rango normal x   : [{grid[1].min():.3f}, {grid[1].max():.3f}]")
-
-    print("\nPipeline verificado correctamente.")
 
     print("\nPipeline verificado correctamente.")
