@@ -339,6 +339,47 @@ def cargar_y_materializar(ruta_npz: str, resolucion: int) -> tuple:
     return grid, d["etiqueta"]
 
 
+def ocupacion_por_nivel_desde_hojas(centros_hoja: np.ndarray, profundidad_max: int) -> np.ndarray:
+    """
+    Calcula el % de ocupacion por nivel DIRECTAMENTE desde los centros
+    de las hojas persistidas en disco (ver guardar_octree_disperso),
+    sin necesidad de reconstruir el arbol completo.
+
+    Equivalencia matematica (verificada numericamente): en este octree,
+    un nodo a profundidad d existe (no fue podado) si y solo si al
+    menos una hoja ocupada cae dentro de su region. Como todas las
+    hojas ocupadas estan exactamente a profundidad_max, basta con
+    contar cuantas celdas UNICAS de resolucion 2^d contienen al menos
+    un centro de hoja -- esto da identicamente el mismo resultado que
+    contar_nodos_por_profundidad() sobre el arbol reconstruido.
+
+    Util quirurgicamente para extraer features HCE (hce_extraccion.py)
+    directamente desde el .npz disperso, sin reconstruir NodoOctree.
+
+    Parametros
+    ----------
+    centros_hoja    : (N, 3) centros de las hojas ocupadas
+    profundidad_max : L de la hoja (5 para R=32, 6 para R=64)
+
+    Retorna
+    -------
+    array de tamaño (profundidad_max + 1): indice 0 = raiz, indice
+    profundidad_max = hoja.
+    """
+    porcentajes = np.zeros(profundidad_max + 1, dtype=np.float32)
+    if len(centros_hoja) == 0:
+        return porcentajes
+
+    for d in range(profundidad_max + 1):
+        R_d = 2 ** d
+        idx = np.clip(((centros_hoja + 1.0) * 0.5 * R_d).astype(np.int64),
+                     0, R_d - 1)
+        celdas_unicas = np.unique(idx, axis=0)
+        porcentajes[d] = 100.0 * len(celdas_unicas) / (8 ** d)
+
+    return porcentajes
+
+
 # ──────────────────────────────────────────────────────────────
 # COMPARATIVA DE MEMORIA: arbol disperso vs rejilla densa
 # ──────────────────────────────────────────────────────────────
