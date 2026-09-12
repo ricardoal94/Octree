@@ -34,7 +34,7 @@ from sklearn.metrics import (
 import joblib
 
 sys.path.insert(0, str(Path(__file__).parent))
-from hce_extraccion import extraer_descriptores_hce, nombres_features
+from hce_extraccion import extraer_descriptores_hce_desde_npz, nombres_features
 
 # ── Configuracion ──────────────────────────────────────────────
 RAIZ_DATA      = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\data")
@@ -89,11 +89,14 @@ def extraer_features_split(raiz_resolucion: Path, split: str, profundidad: int) 
     y = []
 
     for ruta, clase in tqdm(archivos, desc=f"  Extrayendo {split}", ncols=80):
+        # Extraccion directa desde el .npz disperso (centros_hoja,
+        # normales_hoja, etiqueta, profundidad_max) -- no se carga
+        # ningun grid denso, ver hce_extraccion.py::extraer_descriptores_hce_desde_npz
+        feats = extraer_descriptores_hce_desde_npz(str(ruta))
+
         data = np.load(ruta)
-        grid = data["grid"]
         etiqueta = int(data["etiqueta"])
 
-        feats = extraer_descriptores_hce(grid, profundidad)
         X.append(feats)
         y.append(etiqueta)
 
