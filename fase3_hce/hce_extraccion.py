@@ -1,123 +1,103 @@
 """
 hce_extraccion.py - Fase 3 (Enfoque clasico: HCE)
 ====================================================
-Hand-Crafted Extraction: calcula descriptores manuales a partir de los
-grids de octree precomputados (Fase 2), sin usar deep learning.
+Hand-Crafted Extraction: calcula descriptores manuales a partir de un
+OCTREE REAL (arbol con nodo raiz, subdivision recursiva y poda de ramas
+vacias -- ver octree_real.py), sin usar deep learning.
+
+IMPORTANTE - migracion desde la version anterior: esta version opera
+sobre la ESTRUCTURA DE ARBOL REAL (NodoOctree), no sobre una rejilla
+densa (R,R,R). La version anterior calculaba ocupacion_por_nivel()
+mediante max-pool sobre un array denso que reservaba memoria para las
+R^3 celdas sin importar si estaban ocupadas; eso NO era un octree real
+(ver discusion tecnica que motivo esta migracion). Los valores
+numericos resultantes son equivalentes (mismo criterio de ocupacion),
+pero ahora se derivan de un recorrido real del arbol con poda.
+
+Convencion de profundidad (raiz = L=0, un solo nodo, R=2^L en cada
+nivel, consistente con octree_real.py):
+    32^3 -> L=5 (hoja)
+    64^3 -> L=6 (hoja)
 
 Descriptores extraidos (segun metodologia: "ocupacion de nodos por nivel
 y momentos geometricos de la estructura del arbol"):
 
   A) Ocupacion jerarquica por nivel:
-     El grid denso de resolucion R (nivel hoja) se puede reconstruir
-     hacia niveles superiores del octree agregando bloques de 2x2x2
-     (max-pool de ocupacion), hasta alcanzar la resolucion 2^3 (sin
-     llegar a 1^3). Esto produce un numero fijo de valores escalares
-     por resolucion: 5 para R=32, 6 para R=64 (variable `profundidad`
-     en el codigo).
+     Para cada profundidad d = 0 (raiz) .. L (hoja), se calcula el %
+     de nodos que REALMENTE EXISTEN en el arbol (no podados) respecto
+     al maximo posible en ese nivel (8^d). Ver
+     octree_real.py::ocupacion_por_nivel_arbol().
+     Produce L+1 valores escalares: 6 para R=32 (L=5), 7 para R=64 (L=6).
 
-     IMPORTANTE - convencion de etiquetado (no afecta el calculo):
-     bajo la convencion documental acordada, la raiz conceptual del
-     octree se identifica como L=0 en resolucion 2^3 (R = 2^(L+1)).
-     Bajo esa convencion, la hoja de 32^3 corresponde a L=4 y la hoja
-     de 64^3 a L=5 (ver nombres_features() y octree.py::nivel_hoja()).
-     El numero de valores calculados NO cambia; solo cambia la
-     etiqueta L con la que se nombra cada uno en nombres_features().
-
-  B) Momentos geometricos globales (sobre las celdas ocupadas del nivel
-     hoja, tratando sus coordenadas como una nube de puntos discreta):
+  B) Momentos geometricos globales (sobre los CENTROS de las hojas
+     ocupadas del arbol, tratados como una nube de puntos discreta):
      - Centroide (3 valores: cx, cy, cz)
      - Varianza por eje (3 valores: vx, vy, vz)
-     - Momento de inercia / dispersion radial promedio (1 valor)
+     - Dispersion radial promedio (1 valor)
      - Asimetria (skewness) por eje (3 valores)
 
-  C) Estadisticas del vector normal promedio:
-     - Norma promedio de los vectores normales en celdas ocupadas
-       (mide cuan "plana"/coherente es la superficie capturada)
-     - Varianza de las normales (mide rugosidad/variabilidad)
+  C) Estadisticas del vector normal promedio (sobre las hojas ocupadas):
+     - Norma promedio de las normales (coherencia de superficie)
+     - Varianza de la norma (rugosidad/variabilidad)
 
-Total de features: profundidad (ocupacion por nivel) + 10 (momentos
-geometricos) + 2 (estadisticas de normales) = profundidad + 12
-  Para R=32 (5 niveles, etiquetados L=0..L=4): 17 features
-  Para R=64 (6 niveles, etiquetados L=0..L=5): 18 features
+Total de features: (L+1) [ocupacion por nivel, incluyendo la raiz] +
+10 (momentos geometricos) + 2 (estadisticas de normales)
+  Para R=32 (L=5, niveles L=0..L=5): 6 + 12 = 18 features
+  Para R=64 (L=6, niveles L=0..L=6): 7 + 12 = 19 features
 """
 
 import numpy as np
 from pathlib import Path
 
+from octree_real import (
+    NodoOctree, recolectar_hojas, ocupacion_por_nivel_arbol,
+)
+
 
 # ──────────────────────────────────────────────────────────────
-# A. OCUPACION JERARQUICA POR NIVEL
+# A. OCUPACION JERARQUICA POR NIVEL (via arbol real)
 # ──────────────────────────────────────────────────────────────
 
-def ocupacion_por_nivel(ocupacion: np.ndarray, profundidad: int) -> np.ndarray:
+def ocupacion_por_nivel(raiz: NodoOctree, profundidad_max: int) -> np.ndarray:
     """
-    Reconstruye la ocupacion en cada nivel del octree (desde la raiz
-    hasta el nivel hoja) agregando bloques 2x2x2 sucesivamente, y calcula
-    el porcentaje de nodos ocupados en cada nivel.
+    Wrapper delgado sobre ocupacion_por_nivel_arbol() de octree_real.py,
+    mantenido en este modulo para no romper el resto de la interfaz de
+    extraccion HCE. Ver esa funcion para el detalle del calculo.
 
-    Un nodo padre esta "ocupado" si al menos uno de sus 8 hijos lo esta
-    (definicion estandar de octree: un nodo interno existe si contiene
-    alguna superficie en su subarbol).
+    Retorna array de tamaño (profundidad_max + 1): indice 0 = raiz,
+    indice profundidad_max = hoja.
+    """
+    return ocupacion_por_nivel_arbol(raiz, profundidad_max)
+
+
+# ──────────────────────────────────────────────────────────────
+# B. MOMENTOS GEOMETRICOS GLOBALES (sobre centros de hojas del arbol)
+# ──────────────────────────────────────────────────────────────
+
+def momentos_geometricos(hojas: list) -> np.ndarray:
+    """
+    Calcula momentos geometricos sobre los CENTROS de las hojas
+    ocupadas del octree real (en lugar de indices de una rejilla densa).
 
     Parametros
     ----------
-    ocupacion   : grid binario (R, R, R), nivel hoja del octree
-    profundidad : L, numero de niveles (5 para R=32, 6 para R=64)
-
-    Retorna
-    -------
-    array de tamaño `profundidad` con el % de ocupacion en cada nivel,
-    ordenado de la hoja (nivel L) hacia la raiz (nivel 1)
-    """
-    porcentajes = []
-    nivel_actual = ocupacion.copy()
-
-    for _ in range(profundidad):
-        pct = 100.0 * nivel_actual.sum() / nivel_actual.size
-        porcentajes.append(pct)
-
-        R_actual = nivel_actual.shape[0]
-        if R_actual == 1:
-            break
-
-        # Agregar bloques 2x2x2: un bloque esta ocupado si algun hijo lo esta
-        R_mitad = R_actual // 2
-        bloque = nivel_actual.reshape(R_mitad, 2, R_mitad, 2, R_mitad, 2)
-        nivel_actual = (bloque.max(axis=(1, 3, 5)) > 0).astype(np.float32)
-
-    return np.array(porcentajes, dtype=np.float32)
-
-
-# ──────────────────────────────────────────────────────────────
-# B. MOMENTOS GEOMETRICOS GLOBALES
-# ──────────────────────────────────────────────────────────────
-
-def momentos_geometricos(ocupacion: np.ndarray) -> np.ndarray:
-    """
-    Calcula momentos geometricos sobre las coordenadas de las celdas
-    ocupadas (tratadas como una nube de puntos discreta en [-1,1]^3).
+    hojas : lista de NodoOctree (salida de recolectar_hojas())
 
     Retorna 10 valores:
         [cx, cy, cz, vx, vy, vz, dispersion_radial, skew_x, skew_y, skew_z]
     """
-    R = ocupacion.shape[0]
-    idx = np.argwhere(ocupacion > 0)   # (N, 3) indices enteros
-
-    if len(idx) == 0:
+    if len(hojas) == 0:
         return np.zeros(10, dtype=np.float32)
 
-    # Convertir indices a coordenadas continuas en [-1, 1]
-    coords = (idx + 0.5) / R * 2 - 1   # (N, 3)
+    coords = np.array([h.centro for h in hojas], dtype=np.float32)  # (N, 3)
 
-    centroide = coords.mean(axis=0)               # (3,)
+    centroide = coords.mean(axis=0)
     diff = coords - centroide
-    varianza = diff.var(axis=0)                     # (3,)
+    varianza = diff.var(axis=0)
 
-    # Dispersion radial promedio (momento de inercia simplificado)
     dist_radial = np.linalg.norm(diff, axis=1)
     dispersion_radial = dist_radial.mean()
 
-    # Asimetria (skewness) por eje: E[(x-mu)^3] / std^3
     std = np.sqrt(np.clip(varianza, 1e-12, None))
     skew = np.mean(diff ** 3, axis=0) / (std ** 3 + 1e-12)
 
@@ -129,73 +109,72 @@ def momentos_geometricos(ocupacion: np.ndarray) -> np.ndarray:
 
 
 # ──────────────────────────────────────────────────────────────
-# C. ESTADISTICAS DEL VECTOR NORMAL
+# C. ESTADISTICAS DEL VECTOR NORMAL (sobre hojas del arbol)
 # ──────────────────────────────────────────────────────────────
 
-def estadisticas_normales(grid: np.ndarray) -> np.ndarray:
+def estadisticas_normales(hojas: list) -> np.ndarray:
     """
-    A partir de los canales 1:4 del grid (nx, ny, nz) en celdas ocupadas,
+    A partir de la normal promedio almacenada en cada hoja ocupada,
     calcula:
       - norma promedio de las normales (coherencia de superficie)
       - varianza de la norma (rugosidad/variabilidad)
 
+    Parametros
+    ----------
+    hojas : lista de NodoOctree (salida de recolectar_hojas())
+
     Retorna array de 2 valores.
     """
-    ocupacion = grid[0]
-    normales  = grid[1:4]   # (3, R, R, R)
-
-    idx = np.argwhere(ocupacion > 0)
-    if len(idx) == 0:
+    if len(hojas) == 0:
         return np.zeros(2, dtype=np.float32)
 
-    vecs = normales[:, idx[:, 0], idx[:, 1], idx[:, 2]].T   # (N, 3)
+    vecs = np.array([h.normal_promedio for h in hojas], dtype=np.float32)
     normas = np.linalg.norm(vecs, axis=1)
 
     return np.array([normas.mean(), normas.var()], dtype=np.float32)
 
 
 # ──────────────────────────────────────────────────────────────
-# EXTRACTOR COMPLETO: grid -> vector de features
+# EXTRACTOR COMPLETO: arbol real -> vector de features
 # ──────────────────────────────────────────────────────────────
 
-def extraer_descriptores_hce(grid: np.ndarray, profundidad: int) -> np.ndarray:
+def extraer_descriptores_hce(raiz: NodoOctree, profundidad_max: int) -> np.ndarray:
     """
-    Pipeline completo de extraccion HCE para un grid de octree.
+    Pipeline completo de extraccion HCE para un octree REAL.
 
     Parametros
     ----------
-    grid        : array (4, R, R, R) -- salida de octree.py
-    profundidad : L (5 para R=32, 6 para R=64)
+    raiz            : NodoOctree raiz (salida de construir_octree())
+    profundidad_max : L de la hoja (5 para R=32, 6 para R=64)
 
     Retorna
     -------
-    vector de features 1D, tamaño = profundidad + 10 + 2
+    vector de features 1D, tamaño = (profundidad_max + 1) + 10 + 2
     """
-    ocupacion = grid[0]
+    hojas = recolectar_hojas(raiz)
 
-    feats_nivel  = ocupacion_por_nivel(ocupacion, profundidad)     # L valores
-    feats_mom    = momentos_geometricos(ocupacion)                  # 10 valores
-    feats_normal = estadisticas_normales(grid)                      # 2 valores
+    feats_nivel  = ocupacion_por_nivel(raiz, profundidad_max)   # L+1 valores
+    feats_mom    = momentos_geometricos(hojas)                    # 10 valores
+    feats_normal = estadisticas_normales(hojas)                   # 2 valores
 
     return np.concatenate([feats_nivel, feats_mom, feats_normal]).astype(np.float32)
 
 
-def nombres_features(profundidad: int) -> list:
+def nombres_features(profundidad_max: int) -> list:
     """
     Retorna los nombres descriptivos de cada feature, en el mismo
     orden que produce extraer_descriptores_hce(). Util para interpretar
     feature_importances_ del Random Forest.
 
-    Convencion de nivel: ocupacion_por_nivel() calcula el % de ocupacion
-    empezando en la resolucion hoja (mas fina) y terminando en 2^3 (la
-    resolucion mas gruesa alcanzada, sin llegar a 1^3). Bajo la
-    convencion documental de raiz L=0 (R = 2^(L+1)):
-        indice 0            -> L = profundidad - 1  (hoja, mas fina)
-        indice profundidad-1 -> L = 0                (2^3, la mas gruesa)
-    Para 32^3 (profundidad=5): L=4 (hoja) descendiendo hasta L=0 (2^3).
-    Para 64^3 (profundidad=6): L=5 (hoja) descendiendo hasta L=0 (2^3).
+    Convencion: ocupacion_por_nivel() ahora recorre el arbol real desde
+    la raiz (d=0) hasta la hoja (d=profundidad_max), en ese orden
+    ascendente. Por lo tanto:
+        indice 0                -> L = 0 (raiz)
+        indice profundidad_max  -> L = profundidad_max (hoja)
+    Para 32^3 (profundidad_max=5): L=0 (raiz) ... L=5 (hoja).
+    Para 64^3 (profundidad_max=6): L=0 (raiz) ... L=6 (hoja).
     """
-    nombres = [f"ocupacion_L{profundidad - 1 - i}" for i in range(profundidad)]
+    nombres = [f"ocupacion_L{d}" for d in range(profundidad_max + 1)]
     nombres += ["centroide_x", "centroide_y", "centroide_z",
                 "varianza_x", "varianza_y", "varianza_z",
                 "dispersion_radial",
@@ -209,34 +188,38 @@ def nombres_features(profundidad: int) -> list:
 # ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent / "fase2_octree"))
+    from octree_real import construir_octree
+
     print("=" * 60)
-    print("  TEST: Extraccion de descriptores HCE")
+    print("  TEST: Extraccion de descriptores HCE (arbol real)")
     print("=" * 60)
 
-    # Grid sintetico: esfera ocupada en el centro (simula un objeto solido)
-    R = 32
-    L = 5
-    grid = np.zeros((4, R, R, R), dtype=np.float32)
+    # Nube de puntos sintetica: esfera hueca (superficie), no solido
+    rng = np.random.default_rng(42)
+    n_pts = 5000
+    theta = rng.uniform(0, np.pi, n_pts)
+    phi = rng.uniform(0, 2 * np.pi, n_pts)
+    radio = 0.7
+    x = radio * np.sin(theta) * np.cos(phi)
+    y = radio * np.sin(theta) * np.sin(phi)
+    z = radio * np.cos(theta)
+    puntos = np.stack([x, y, z], axis=1).astype(np.float32)
+    normales = puntos / radio
 
-    centro = R // 2
-    radio = R // 4
-    for x in range(R):
-        for y in range(R):
-            for z in range(R):
-                if (x-centro)**2 + (y-centro)**2 + (z-centro)**2 <= radio**2:
-                    grid[0, x, y, z] = 1.0
-                    # Normal sintetica apuntando hacia afuera del centro
-                    v = np.array([x-centro, y-centro, z-centro], dtype=np.float32)
-                    norma = np.linalg.norm(v)
-                    if norma > 0:
-                        grid[1:4, x, y, z] = v / norma
+    for R, L in [(32, 5), (64, 6)]:
+        print(f"\n--- Resolucion {R}^3 (L={L}, hoja) ---")
+        raiz = construir_octree(puntos, normales, profundidad_max=L)
 
-    feats = extraer_descriptores_hce(grid, L)
-    nombres = nombres_features(L)
+        feats = extraer_descriptores_hce(raiz, L)
+        nombres = nombres_features(L)
 
-    print(f"\n  Total features: {len(feats)}")
-    for nombre, valor in zip(nombres, feats):
-        print(f"    {nombre:25s}: {valor:.4f}")
+        print(f"  Total features: {len(feats)}  (esperado: {L+1+12})")
+        assert len(feats) == L + 1 + 12
+        assert len(nombres) == len(feats)
 
-    assert len(feats) == L + 12, "Numero de features inesperado"
-    print("\n  Test completado correctamente.")
+        for nombre, valor in zip(nombres, feats):
+            print(f"    {nombre:25s}: {valor:.4f}")
+
+    print("\n  Test completado correctamente (arbol real, sin rejilla densa).")
