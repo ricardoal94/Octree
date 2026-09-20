@@ -14,7 +14,7 @@
   },
   "corrida_completa_modelnet40": false,
   "dataset_root": "Dataset/ModelNet40",
-  "duracion_total_s": 3.1543733000000884,
+  "duracion_total_s": 3.152544199998374,
   "errores": [],
   "limite_global": null,
   "muestra_por_categoria_split": 1,
