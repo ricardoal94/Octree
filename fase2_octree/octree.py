@@ -202,15 +202,21 @@ def construir_grid_octree(
     idx = np.clip(idx, 0, R - 1)
 
     grid_ocupacion = np.zeros((R, R, R), dtype=np.float32)
-    grid_normal_sum = np.zeros((R, R, R, 3), dtype=np.float32)
-    grid_conteo = np.zeros((R, R, R), dtype=np.float32)
+    # Acumulacion en float64: np.add.at suma secuencialmente (no usa la
+    # suma por pares de np.mean), y en celdas donde las normales casi se
+    # cancelan (bordes/curvatura) el error de redondeo de float32 se
+    # amplifica al normalizar un vector casi nulo. float64 mantiene esa
+    # acumulacion consistente con la del octree (ver construir_octree).
+    grid_normal_sum = np.zeros((R, R, R, 3), dtype=np.float64)
+    grid_conteo = np.zeros((R, R, R), dtype=np.float64)
 
     # Acumulacion vectorizada usando indices lineales (mucho mas rapido que loop)
     idx_lineal = idx[:, 0] * R * R + idx[:, 1] * R + idx[:, 2]
 
     np.add.at(grid_conteo.reshape(-1), idx_lineal, 1.0)
+    normales_f64 = normales.astype(np.float64)
     for c in range(3):
-        np.add.at(grid_normal_sum.reshape(-1, 3)[:, c], idx_lineal, normales[:, c])
+        np.add.at(grid_normal_sum.reshape(-1, 3)[:, c], idx_lineal, normales_f64[:, c])
 
     grid_ocupacion = (grid_conteo > 0).astype(np.float32)
 

@@ -108,15 +108,35 @@ class NodoOctree:
 # CONSTRUCCION RECURSIVA CON PODA
 # ──────────────────────────────────────────────────────────────
 
-def _octante_de_puntos(puntos: np.ndarray, centro: np.ndarray) -> np.ndarray:
+def _indice_celda_final(puntos: np.ndarray, resolucion: int) -> np.ndarray:
     """
-    Determina a que octante (0-7) pertenece cada punto, segun su
-    posicion relativa al centro del nodo actual en cada eje.
-    Codificacion de bits: bit0=eje X, bit1=eje Y, bit2=eje Z.
+    Indice de celda (0..R-1 por eje) de cada punto en la rejilla final,
+    calculado con la MISMA formula que ``construir_grid_octree`` (grid
+    denso de referencia).
     """
-    bits_x = (puntos[:, 0] >= centro[0]).astype(np.int64)
-    bits_y = (puntos[:, 1] >= centro[1]).astype(np.int64)
-    bits_z = (puntos[:, 2] >= centro[2]).astype(np.int64)
+    idx = ((puntos + 1.0) * 0.5 * resolucion).astype(np.int64)
+    return np.clip(idx, 0, resolucion - 1)
+
+
+def _octante_de_bits(idx_leaf: np.ndarray, profundidad_max: int, profundidad: int) -> np.ndarray:
+    """
+    Determina el octante (0-7) de cada punto en el nivel ``profundidad``
+    a partir del indice de celda final ya calculado (``idx_leaf``), en
+    vez de comparar la posicion del punto contra el centro del nodo.
+
+    Esto garantiza que la particion recursiva del octree sea bit a bit
+    identica a la cuantizacion directa del grid denso: usar comparaciones
+    de punto flotante contra un ``centro`` acumulado a lo largo de varios
+    niveles de recursion puede clasificar de forma distinta un punto muy
+    cercano a un limite de celda que la formula directa de cuantizacion
+    (division redondeada a la baja en un solo paso), produciendo una
+    ocupacion identica pero con puntos repartidos entre celdas vecinas
+    de forma distinta -- y por lo tanto normales promedio distintas.
+    """
+    bit = profundidad_max - 1 - profundidad
+    bits_x = (idx_leaf[:, 0] >> bit) & 1
+    bits_y = (idx_leaf[:, 1] >> bit) & 1
+    bits_z = (idx_leaf[:, 2] >> bit) & 1
     return bits_x + bits_y * 2 + bits_z * 4
 
 
@@ -136,6 +156,7 @@ def construir_octree(
     centro: np.ndarray = None,
     tamano: float = 2.0,
     profundidad: int = 0,
+    idx_leaf: np.ndarray = None,
 ) -> NodoOctree:
     """
     Construye recursivamente un octree real a partir de una nube de
@@ -162,6 +183,8 @@ def construir_octree(
     """
     if centro is None:
         centro = np.zeros(3, dtype=np.float32)
+    if idx_leaf is None:
+        idx_leaf = _indice_celda_final(puntos, 2 ** profundidad_max)
 
     nodo = NodoOctree(centro, tamano, profundidad)
     n = len(puntos)
@@ -176,7 +199,10 @@ def construir_octree(
 
     if profundidad >= profundidad_max:
         nodo.es_hoja = True
-        normal_prom = normales.mean(axis=0)
+        # float64: coherente con la acumulacion de construir_grid_octree
+        # (evita divergencias de redondeo float32 que se amplifican al
+        # normalizar hojas con normales casi canceladas).
+        normal_prom = normales.astype(np.float64).mean(axis=0)
         norma = np.linalg.norm(normal_prom)
         # CORRECCION (observacion de Andres Gonzalez): guardar la
         # magnitud ANTES de normalizar. Esta es la medida de coherencia
@@ -191,7 +217,7 @@ def construir_octree(
         return nodo
 
     nodo.es_hoja = False
-    octantes = _octante_de_puntos(puntos, centro)
+    octantes = _octante_de_bits(idx_leaf, profundidad_max, profundidad)
 
     for i in range(8):
         mask = octantes == i
@@ -202,6 +228,7 @@ def construir_octree(
         nodo.hijos[i] = construir_octree(
             puntos[mask], normales[mask], profundidad_max,
             centro=centro_hijo, tamano=tamano / 2.0, profundidad=profundidad + 1,
+            idx_leaf=idx_leaf[mask],
         )
 
     return nodo
