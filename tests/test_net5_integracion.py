@@ -1,69 +1,78 @@
-"""
-test_net5_integracion.py - Prueba de integracion corta de Net5 (Objetivo 3)
-=============================================================================
-No entrena Net5 completo. Verifica, para R=32 y R=64, usando las MISMAS
-particiones y semilla (seed=42) del Objetivo 2 (logs/particion_indices.npz,
-generado por fase1_modelnet40/fase1_setup.py::particionar_dataset):
+"""Integración local de la referencia densa de la Tabla 5.
 
-  1. Carga de datos reales (octrees dispersos -> grid denso (4,R,R,R))
-  2. Dimensiones de entrada/salida del modelo
-  3. Propagacion hacia adelante (forward)
-  4. Propagacion hacia atras (backward / gradientes)
-  5. Calculo de la perdida (CrossEntropyLoss)
-  6. Guardado (y recarga) del checkpoint del modelo
-
-Ejecucion:
-    pytest tests/test_net5_integracion.py -v
+Estas pruebas requieren PyTorch y los octrees reales. Validan el cableado
+diagnóstico, no el backend OctNet ni el cierre del Objetivo 3.
 """
 
 from pathlib import Path
 
-import numpy as np
 import pytest
-import torch
+
+
+torch = pytest.importorskip(
+    "torch",
+    reason="La integración densa opcional requiere PyTorch",
+)
 import torch.nn as nn
 import torch.optim as optim
 
-from net5_dataset import OctreeDataset
-from net5_modelo import Net5Octree, crear_modelo
+from net5_dataset import DenseOctreeDataset
+from net5_modelo import DenseTabla5Reference, crear_modelo_denso_referencia
+from particion_objetivo2 import (
+    cargar_o_crear_particion,
+    listar_muestras_octree,
+    seleccionar_subconjunto_balanceado,
+)
+
+
+pytestmark = pytest.mark.dataset
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_ROOT = ROOT / "data"
-PARTICION_PATH = ROOT / "logs" / "particion_indices.npz"
-
-N_TRAIN_MUESTRA = 8
-N_VAL_MUESTRA = 4
-
-
-def _cargar_indices_muestra():
-    """Toma un subconjunto pequeno de la particion real (seed=42,
-    Objetivo 2) para mantener la prueba de integracion rapida."""
-    assert PARTICION_PATH.exists(), (
-        f"No se encontro la particion de Objetivo 2 en {PARTICION_PATH}. "
-        "Ejecute fase1_modelnet40/fase1_setup.py primero."
-    )
-    particion = np.load(str(PARTICION_PATH))
-    idx_train = particion["idx_train"][:N_TRAIN_MUESTRA]
-    idx_val = particion["idx_val"][:N_VAL_MUESTRA]
-    return idx_train, idx_val
+N_TRAIN_MUESTRA = 2
+N_VAL_MUESTRA = 2
 
 
 @pytest.fixture(scope="module")
-def indices_muestra():
-    return _cargar_indices_muestra()
+def manifest_temporal(tmp_path_factory):
+    for resolucion in (32, 64):
+        if not (DATA_ROOT / f"octrees_{resolucion}").exists():
+            pytest.skip("No están disponibles los octrees reales R32 y R64")
+    return tmp_path_factory.mktemp("particion") / "objetivo2.json"
+
+
+def _indices_muestra(raiz_resolucion: Path, manifest_path: Path):
+    idx_train, idx_val, _, _ = cargar_o_crear_particion(
+        raiz_resolucion,
+        manifest_path,
+        seed=42,
+        val_split=0.10,
+    )
+    _, etiquetas, _ = listar_muestras_octree(raiz_resolucion, "train")
+    return (
+        seleccionar_subconjunto_balanceado(
+            idx_train, etiquetas, N_TRAIN_MUESTRA, seed=42,
+        ),
+        seleccionar_subconjunto_balanceado(
+            idx_val, etiquetas, N_VAL_MUESTRA, seed=42,
+        ),
+    )
 
 
 @pytest.mark.parametrize("resolucion", [32, 64])
-def test_integracion_net5_corta(resolucion, indices_muestra, tmp_path):
-    idx_train, idx_val = indices_muestra
+def test_integracion_densa_corta(resolucion, manifest_temporal, tmp_path):
     raiz_resolucion = DATA_ROOT / f"octrees_{resolucion}"
-    assert raiz_resolucion.exists(), f"No existe {raiz_resolucion}"
-
+    idx_train, idx_val = _indices_muestra(
+        raiz_resolucion, manifest_temporal,
+    )
     torch.manual_seed(42)
 
-    # 1. Carga de datos reales (octree disperso -> grid denso)
-    ds_train = OctreeDataset(str(raiz_resolucion), resolucion, "train", idx_train)
-    ds_val = OctreeDataset(str(raiz_resolucion), resolucion, "val", idx_val)
+    ds_train = DenseOctreeDataset(
+        str(raiz_resolucion), resolucion, "train", idx_train,
+    )
+    ds_val = DenseOctreeDataset(
+        str(raiz_resolucion), resolucion, "val", idx_val,
+    )
     assert len(ds_train) == N_TRAIN_MUESTRA
     assert len(ds_val) == N_VAL_MUESTRA
 
@@ -75,14 +84,15 @@ def test_integracion_net5_corta(resolucion, indices_muestra, tmp_path):
     lote_train = torch.stack([ds_train[i][0] for i in range(len(ds_train))])
     etq_train = torch.stack([ds_train[i][1] for i in range(len(ds_train))])
     lote_val = torch.stack([ds_val[i][0] for i in range(len(ds_val))])
-    etq_val = torch.stack([ds_val[i][1] for i in range(len(ds_val))])
 
-    # 2. Dimensiones del modelo
     device = torch.device("cpu")
-    modelo, _ = crear_modelo(resolucion=resolucion, num_clases=40, device=device)
-    assert isinstance(modelo, Net5Octree)
+    modelo, _ = crear_modelo_denso_referencia(
+        resolucion=resolucion,
+        num_clases=40,
+        device=device,
+    )
+    assert isinstance(modelo, DenseTabla5Reference)
 
-    # 3. Propagacion hacia adelante
     logits_train = modelo(lote_train)
     assert logits_train.shape == (N_TRAIN_MUESTRA, 40)
     assert torch.isfinite(logits_train).all()
@@ -93,54 +103,47 @@ def test_integracion_net5_corta(resolucion, indices_muestra, tmp_path):
     assert logits_val.shape == (N_VAL_MUESTRA, 40)
     modelo.train()
 
-    # 5. Calculo de la perdida
     criterio = nn.CrossEntropyLoss()
     perdida = criterio(logits_train, etq_train)
     assert torch.isfinite(perdida)
     assert perdida.item() > 0
 
-    # 4. Propagacion hacia atras
     optimizador = optim.Adam(modelo.parameters(), lr=1e-3)
     optimizador.zero_grad()
     perdida.backward()
-
-    parametros_con_grad = [p for p in modelo.parameters() if p.requires_grad]
-    assert len(parametros_con_grad) > 0
-    assert all(p.grad is not None for p in parametros_con_grad), \
-        "Algun parametro no recibio gradiente en el backward"
-    norma_grad_total = sum(p.grad.norm().item() for p in parametros_con_grad)
-    assert norma_grad_total > 0, "El gradiente total es cero"
-
+    parametros = [p for p in modelo.parameters() if p.requires_grad]
+    assert parametros
+    assert all(p.grad is not None for p in parametros)
+    assert sum(p.grad.norm().item() for p in parametros) > 0
     optimizador.step()
 
-    # 6. Guardado y recarga del checkpoint
-    ckpt_path = tmp_path / f"net5_test_R{resolucion}.pth"
-    torch.save({
-        "epoca": 1,
-        "model_state": modelo.state_dict(),
-        "optimizer_state": optimizador.state_dict(),
-        "mejor_val_acc": 0.0,
-        "resolucion": resolucion,
-    }, ckpt_path)
-    assert ckpt_path.exists()
-    assert ckpt_path.stat().st_size > 0
-
-    modelo_recargado, _ = crear_modelo(resolucion=resolucion, num_clases=40, device=device)
-    ckpt = torch.load(ckpt_path, map_location=device)
-    modelo_recargado.load_state_dict(ckpt["model_state"])
+    ckpt_path = tmp_path / f"dense_tabla5_R{resolucion}.pth"
+    torch.save({"model_state": modelo.state_dict()}, ckpt_path)
+    modelo_recargado, _ = crear_modelo_denso_referencia(
+        resolucion=resolucion,
+        num_clases=40,
+        device=device,
+    )
+    checkpoint = torch.load(ckpt_path, map_location=device)
+    modelo_recargado.load_state_dict(checkpoint["model_state"])
 
     modelo.eval()
     modelo_recargado.eval()
     with torch.no_grad():
         logits_original = modelo(lote_train)
         logits_recargado = modelo_recargado(lote_train)
-    assert torch.allclose(logits_original, logits_recargado, atol=1e-6), \
-        "Los logits del modelo recargado no coinciden con el original"
+    assert torch.allclose(logits_original, logits_recargado, atol=1e-6)
 
 
-def test_capacidad_fija_entre_resoluciones():
-    """La Tabla 4 de OctNet garantiza el mismo numero de parametros
-    independientemente de la resolucion de entrada (32^3 o 64^3)."""
-    modelo_32 = Net5Octree(resolucion=32, num_clases=40)
-    modelo_64 = Net5Octree(resolucion=64, num_clases=40)
+def test_referencia_densa_tiene_capacidad_fija():
+    """La topología de la Tabla 5 conserva el conteo de parámetros."""
+    modelo_32 = DenseTabla5Reference(resolucion=32, num_clases=40)
+    modelo_64 = DenseTabla5Reference(resolucion=64, num_clases=40)
     assert modelo_32.contar_parametros() == modelo_64.contar_parametros()
+
+
+def test_constructor_oficial_no_suplanta_octnet():
+    from net5_modelo import crear_modelo
+
+    with pytest.raises(NotImplementedError, match="OctNet nativo"):
+        crear_modelo(resolucion=32)

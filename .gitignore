@@ -48,6 +48,7 @@ fase1_modelnet40/logs/particion_indices.npz
 !fase1_modelnet40/logs/.gitkeep
 logs/*.csv
 logs/*.npz
+logs/dense_tabla5_historial_*.json
 !logs/.gitkeep
 
 # ── Renders e imagenes generadas en preprocesamiento ─────────
@@ -57,6 +58,10 @@ renders/
 # Descomentar si no se quiere versionar las figuras PNG/SVG generadas:
 # resultados/*.png
 # resultados/*.svg
+
+# Diagnosticos densos del Objetivo 3 (no son evidencia experimental)
+resultados/objetivo3/resumen_dense_tabla5_*.json
+resultados/objetivo3/verificacion_dense_tabla5.json
 
 # ── Credenciales y configuracion local ───────────────────────
 .env

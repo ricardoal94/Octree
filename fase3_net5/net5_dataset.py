@@ -1,19 +1,9 @@
-"""
-net5_dataset.py - Fase 3 (Enfoque profundo)
-=============================================
-Dataset PyTorch que carga los octrees REALES en formato DISPERSO (.npz
-con solo hojas ocupadas, ver octree_real.py y preprocesar_octrees.py) y
-los MATERIALIZA a un grid denso (4, R, R, R) unicamente en memoria RAM,
-en el momento de entregar cada muestra al DataLoader.
+"""Cargador provisional para la referencia densa de la Tabla 5.
 
-El archivo en disco permanece disperso en todo momento (proporcional al
-numero de hojas ocupadas, tipicamente 1-3% de R^3). Solo se construye
-un tensor denso transitorio porque Conv3d/ConvTranspose3d de PyTorch
-requieren tensores densos -- esto es una materializacion "justo a
-tiempo" (just-in-time), no un cambio en el formato de almacenamiento.
-
-Restriccion metodologica (seccion 6.6): NO se aplica aumento de datos
-en ningun enfoque, para observar puramente el efecto de la resolucion.
+Este modulo materializa el octree en un tensor ``(4, R, R, R)`` y, por ello,
+NO constituye el backend OctNet requerido por el objetivo 3. Se conserva
+unicamente para pruebas diagnosticas de la topologia de red. El backend
+definitivo debe consumir la jerarquia del octree sin expandirla a ``R^3``.
 """
 
 import numpy as np
@@ -25,18 +15,10 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "fase2_octree"))
 from octree_real import cargar_octree_disperso
+from particion_objetivo2 import CLASES_MODELNET40, listar_muestras_octree
 
 
-CLASES = [
-    "airplane", "bathtub", "bed", "bench", "bookshelf",
-    "bottle", "bowl", "car", "chair", "cone",
-    "cup", "curtain", "desk", "door", "dresser",
-    "flower_pot", "glass_box", "guitar", "keyboard", "lamp",
-    "laptop", "mantel", "monitor", "night_stand", "person",
-    "piano", "plant", "radio", "range_hood", "sink",
-    "sofa", "stairs", "stool", "table", "tent",
-    "toilet", "tv_stand", "vase", "wardrobe", "xbox",
-]
+CLASES = CLASES_MODELNET40
 
 
 def _materializar_grid_denso(centros: np.ndarray, normales: np.ndarray,
@@ -58,10 +40,9 @@ def _materializar_grid_denso(centros: np.ndarray, normales: np.ndarray,
     return grid
 
 
-class OctreeDataset(Dataset):
+class DenseOctreeDataset(Dataset):
     """
-    Carga octrees dispersos (.npz) desde la estructura generada en
-    Fase 2, y los materializa a grid denso al vuelo para Net5Octree.
+    Carga octrees dispersos y los materializa para la referencia densa.
 
     Parametros
     ----------
@@ -75,21 +56,21 @@ class OctreeDataset(Dataset):
     def __init__(self, raiz_resolucion: str, resolucion: int,
                 split: str = "train", idx_subset: np.ndarray = None):
         super().__init__()
-        raiz = Path(raiz_resolucion)
         self.resolucion = resolucion
         carpeta_split = "train" if split in ("train", "val") else "test"
 
-        self.muestras = []
-        for clase in CLASES:
-            carpeta = raiz / clase / carpeta_split
-            if not carpeta.exists():
-                continue
-            for archivo in sorted(carpeta.glob("*.npz")):
-                self.muestras.append(str(archivo))
+        rutas, etiquetas, _ = listar_muestras_octree(
+            raiz_resolucion, carpeta_split,
+        )
+        self.muestras = rutas
+        self.etiquetas = etiquetas
 
         if idx_subset is not None:
-            self.muestras = [self.muestras[i] for i in idx_subset
-                             if i < len(self.muestras)]
+            indices = np.asarray(idx_subset, dtype=np.int64)
+            if indices.size and (indices.min() < 0 or indices.max() >= len(rutas)):
+                raise IndexError("La particion contiene indices fuera del dataset")
+            self.muestras = [rutas[i] for i in indices]
+            self.etiquetas = etiquetas[indices]
 
         print(f"[Dataset] Octree disperso '{split}': {len(self.muestras)} muestras "
              f"(materializacion a {resolucion}^3 al vuelo)")
@@ -98,7 +79,10 @@ class OctreeDataset(Dataset):
         return len(self.muestras)
 
     def __getitem__(self, idx: int):
-        d = cargar_octree_disperso(self.muestras[idx])
+        d = cargar_octree_disperso(str(self.muestras[idx]))
+        etiqueta_esperada = int(self.etiquetas[idx])
+        if d["etiqueta"] != etiqueta_esperada:
+            raise ValueError("La etiqueta del NPZ no coincide con su carpeta")
         grid_np = _materializar_grid_denso(
             d["centros_hoja"], d["normales_hoja"], self.resolucion,
         )
@@ -111,7 +95,7 @@ def _worker_init_fn(worker_id: int, seed: int = 42) -> None:
     np.random.seed(seed + worker_id)
 
 
-def crear_dataloaders_octree(
+def crear_dataloaders_densos_referencia(
     raiz_resolucion: str,
     resolucion: int,
     idx_train: np.ndarray,
@@ -121,16 +105,15 @@ def crear_dataloaders_octree(
     num_workers: int = 4,
     seed: int = 42,
 ) -> tuple:
-    """Crea DataLoaders de train, val y test para Net5Octree, a partir
-    del formato disperso (materializacion a denso ocurre en __getitem__).
+    """Crea DataLoaders para la referencia densa, no para OctNet.
 
     idx_test=None (por defecto) usa el conjunto de prueba oficial completo;
     se puede pasar un subconjunto de indices para pruebas rapidas (smoke
     tests) de la propia rutina de entrenamiento."""
 
-    ds_train = OctreeDataset(raiz_resolucion, resolucion, "train", idx_train)
-    ds_val   = OctreeDataset(raiz_resolucion, resolucion, "val",   idx_val)
-    ds_test  = OctreeDataset(raiz_resolucion, resolucion, "test",  idx_test)
+    ds_train = DenseOctreeDataset(raiz_resolucion, resolucion, "train", idx_train)
+    ds_val = DenseOctreeDataset(raiz_resolucion, resolucion, "val", idx_val)
+    ds_test = DenseOctreeDataset(raiz_resolucion, resolucion, "test", idx_test)
 
     g = torch.Generator()
     g.manual_seed(seed)

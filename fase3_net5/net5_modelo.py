@@ -1,19 +1,21 @@
-"""
-net5_modelo.py - Fase 3 (Enfoque profundo)
-===========================================
-Implementacion de Net5 operando sobre los grids de octree densos
-(4, R, R, R) generados en la Fase 2.
+"""Contrato del modelo profundo y referencia densa de la Tabla 5.
+
+La clase incluida en este archivo usa ``torch.nn.Conv3d`` sobre tensores
+densos. Sirve para verificar la topologia de capacidad fija de la Tabla 5,
+pero no es OctNet: el articulo define sus operaciones directamente sobre la
+estructura grid-octree. Por tanto, esta referencia no puede producir los
+resultados oficiales del objetivo 3.
 
 Fuente de la arquitectura
 --------------------------
 Net5 corresponde a la variante de **capacidad fija** ("keep the capacity
 of the model, i.e., the number of parameters, constant") de OctNet
 (Riegler, Ulusoy, Geiger, "OctNet: Learning Deep 3D Representations at
-High Resolutions", CVPR 2017), documentada en la **Tabla 4** ("Network
+High Resolutions", CVPR 2017), documentada en la **Tabla 5** ("Network
 Architectures ModelNet10 Classification") del material suplementario del
 paper: https://www.cvlibs.net/publications/Riegler2017CVPR_supplementary.pdf
 
-La Tabla 4 define 5 bloques de dos convoluciones 3^3 cada uno, con
+La Tabla 5 define 5 bloques de dos convoluciones 3^3 cada uno, con
 canales FIJOS independientes de la resolucion de entrada:
 
     Bloque 1: conv(Cin, 8)  -> conv(8, 14)
@@ -40,7 +42,7 @@ y se aplican en los ULTIMOS N_pool bloques:
     R=64^3 (N_pool=3): bloques 1-2 sin pool, pool tras bloques 3, 4 y 5
                        64 -> 64 -> 64 -> 32 -> 16 -> 8
 
-Adaptaciones respecto al paper original (segun Objetivo 3 de la tesis):
+Adaptaciones diagnosticas respecto al paper original:
   - Canales de entrada: 4 (ocupacion + normal promedio nx, ny, nz) en
     vez de 1 (solo ocupacion binaria), acorde a la codificacion de hojas
     definida en la Fase 2 (preprocesar_octrees.py / octree_real.py).
@@ -57,7 +59,7 @@ import torch.nn.functional as F
 
 
 # ──────────────────────────────────────────────────────────────
-# BLOQUE BASICO: conv(Cin, Cout) 3^3, stride 1 + ReLU (notacion Tabla 4)
+# BLOQUE BASICO: conv(Cin, Cout) 3^3, stride 1 + ReLU (notacion Tabla 5)
 # ──────────────────────────────────────────────────────────────
 
 class ConvReLU3D(nn.Module):
@@ -71,9 +73,9 @@ class ConvReLU3D(nn.Module):
         return F.relu(self.conv(x))
 
 
-class BloqueOctNet(nn.Module):
+class BloqueConv3DDenso(nn.Module):
     """
-    Un bloque de la Tabla 4: dos conv(3^3) consecutivas seguidas de un
+    Un bloque de la Tabla 5: dos conv(3^3) consecutivas seguidas de un
     maxpool(2) opcional. El maxpool se omite en los bloques iniciales
     para las resoluciones de entrada menores, manteniendo el numero de
     parametros de la red fijo independientemente de R (ver docstring
@@ -94,7 +96,7 @@ class BloqueOctNet(nn.Module):
         return x
 
 
-# Canales (mid, out) de los 5 bloques de la Tabla 4 -- fijos, no dependen de R
+# Canales (mid, out) de los 5 bloques de la Tabla 5 -- fijos, no dependen de R
 _CANALES_BLOQUES = [
     (8, 14),
     (14, 20),
@@ -105,20 +107,21 @@ _CANALES_BLOQUES = [
 
 
 # ──────────────────────────────────────────────────────────────
-# NET5 — VARIANTE DE CAPACIDAD FIJA DE OCTNET (TABLA 4)
+# REFERENCIA DENSA DE LA TOPOLOGIA DE CAPACIDAD FIJA (TABLA 5)
 # ──────────────────────────────────────────────────────────────
 
-class Net5Octree(nn.Module):
+class DenseTabla5Reference(nn.Module):
     """
-    Net5: red convolucional jerarquica basada en la Tabla 4 (arquitectura
-    de capacidad fija) de OctNet, adaptada a 4 canales de entrada y 40
-    clases de salida (ModelNet40).
+    CNN 3D densa con la topologia de capacidad fija de la Tabla 5.
+
+    No debe denominarse Net5/OctNet en reportes experimentales porque no
+    ejecuta convoluciones ni pooling sobre los nodos del grid-octree.
 
     Parametros
     ----------
     resolucion    : 32 o 64
     num_clases    : 40 para ModelNet40
-    dropout       : tasa de dropout antes del clasificador FC (0.5 en la Tabla 4)
+    dropout       : tasa de dropout antes del clasificador FC (0.5 en la Tabla 5)
     in_channels   : 4 (ocupacion + nx + ny + nz)
     """
 
@@ -145,7 +148,7 @@ class Net5Octree(nn.Module):
         for i, (mid, out) in enumerate(_CANALES_BLOQUES):
             bloque_idx = i + 1  # 1-indexado
             con_pool = bloque_idx > (n_bloques - n_pool)
-            bloques.append(BloqueOctNet(canal_in, mid, out, con_pool))
+            bloques.append(BloqueConv3DDenso(canal_in, mid, out, con_pool))
             canal_in = out
         self.bloques = nn.Sequential(*bloques)
 
@@ -185,6 +188,23 @@ class Net5Octree(nn.Module):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 
+class Net5Octree(nn.Module):
+    """Compatibilidad de importación para scripts históricos.
+
+    La clase anterior tenía este nombre aunque ejecutaba ``nn.Conv3d``. Se
+    conserva únicamente para que esos scripts fallen con un diagnóstico
+    explícito en vez de un ``ImportError`` o, peor, produzcan resultados
+    densos etiquetados como OctNet.
+    """
+
+    def __init__(self, *_args, **_kwargs):
+        super().__init__()
+        raise NotImplementedError(
+            "Net5Octree requiere el backend OctNet nativo, aún pendiente. "
+            "Use DenseTabla5Reference solo para diagnósticos no oficiales."
+        )
+
+
 # ──────────────────────────────────────────────────────────────
 # UTILIDADES
 # ──────────────────────────────────────────────────────────────
@@ -201,20 +221,34 @@ def get_device() -> torch.device:
     return device
 
 
-def crear_modelo(resolucion: int = 32, num_clases: int = 40,
-                 dropout: float = 0.5, device: torch.device = None) -> tuple:
+def crear_modelo_denso_referencia(
+    resolucion: int = 32,
+    num_clases: int = 40,
+    dropout: float = 0.5,
+    device: torch.device = None,
+) -> tuple:
     if device is None:
         device = get_device()
-    modelo = Net5Octree(resolucion=resolucion, num_clases=num_clases,
-                        dropout=dropout).to(device)
+    modelo = DenseTabla5Reference(
+        resolucion=resolucion, num_clases=num_clases, dropout=dropout,
+    ).to(device)
     params = modelo.contar_parametros()
-    print(f"\n[Modelo] Net5-Octree creado (OctNet Tabla 4, capacidad fija):")
+    print("\n[Modelo] Referencia densa creada (topologia de la Tabla 5):")
     print(f"  Resolucion    : {resolucion}^3  (maxpools aplicados={modelo.n_pool})")
     print(f"  Clases        : {num_clases}")
     print(f"  Dropout       : {dropout}")
     print(f"  Parametros    : {params:,}")
     print(f"  Dispositivo   : {device}")
     return modelo, device
+
+
+def crear_modelo(*_args, **_kwargs):
+    """Evita presentar accidentalmente la referencia densa como OctNet."""
+    raise NotImplementedError(
+        "El backend OctNet nativo aun no esta implementado. "
+        "La referencia con nn.Conv3d solo puede crearse mediante "
+        "crear_modelo_denso_referencia() para pruebas diagnosticas."
+    )
 
 
 # ──────────────────────────────────────────────────────────────
@@ -226,7 +260,7 @@ if __name__ == "__main__":
 
     params_r32 = params_r64 = None
     for R in (32, 64):
-        modelo, device = crear_modelo(resolucion=R)
+        modelo, device = crear_modelo_denso_referencia(resolucion=R)
         x = torch.randn(2, 4, R, R, R).to(device)
         logits = modelo(x)
         print(f"  Input {tuple(x.shape)} -> Output {tuple(logits.shape)}\n")
@@ -237,6 +271,6 @@ if __name__ == "__main__":
 
     assert params_r32 == params_r64, (
         "El numero de parametros deberia ser identico para R=32 y R=64 "
-        "(arquitectura de capacidad fija, Tabla 4 de OctNet)"
+        "(topologia de capacidad fija, Tabla 5)"
     )
     print(f"[OK] Parametros identicos en R=32 y R=64: {params_r32:,}")

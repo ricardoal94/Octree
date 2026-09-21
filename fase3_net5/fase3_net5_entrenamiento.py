@@ -1,10 +1,11 @@
-"""
-fase3_net5_entrenamiento.py - Fase 3 (Enfoque profundo)
-=========================================================
-Entrenamiento de Net5Octree sobre los grids de octree precomputados.
+"""Entrenamiento diagnostico de la referencia densa de la Tabla 5.
+
+Este script NO produce resultados oficiales del objetivo 3 mientras el
+backend sea ``dense_reference``. Se mantiene para validar el flujo de datos,
+entrenamiento y reporte antes de conectar el backend OctNet nativo.
 
 Caracteristicas:
-  - GPU (RTX 5070) via CUDA
+  - CPU o GPU via PyTorch
   - Early Stopping basado en val accuracy (segun metodologia, sec. 6.3)
   - Optimizador Adam + CrossEntropy
   - Log CSV y JSON por epoca
@@ -13,8 +14,9 @@ Caracteristicas:
   - Sin aumento de datos (criterio de equivalencia, sec. 6.6)
 
 Uso:
-    python fase3_net5_entrenamiento.py --resolucion 32
-    python fase3_net5_entrenamiento.py --resolucion 64
+    python fase3_net5/fase3_net5_entrenamiento.py --resolucion 32 \
+      --backend dense_reference --tag _smoke --limite_train 80 \
+      --limite_val 40 --limite_test 80
 """
 
 import sys
@@ -32,17 +34,30 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent.parent / "fase1_modelnet40"))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fase1_setup      import set_global_seed, particionar_dataset, cargar_config
-from net5_modelo      import crear_modelo, get_device
-from net5_dataset     import crear_dataloaders_octree
+from fase1_setup import set_global_seed
+from net5_dataset import CLASES, crear_dataloaders_densos_referencia
+from net5_modelo import crear_modelo_denso_referencia, get_device
+from particion_objetivo2 import (
+    cargar_o_crear_particion,
+    listar_muestras_octree,
+    seleccionar_subconjunto_balanceado,
+)
 
-# ── Rutas ──────────────────────────────────────────────────────
-RAIZ_DATA      = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\data")
-RAIZ_CONFIG    = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\fase1_modelnet40\config.yaml")
-DIR_CKPT       = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\checkpoints")
-DIR_LOGS       = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\logs")
-DIR_RESULTADOS = Path(r"C:\Users\ricar\Documents\Codigos\Tesis\resultados")
+RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
 SEED = 42
+
+
+def _sincronizar_cuda(device: torch.device) -> None:
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+
+
+def _ruta_portable(ruta: Path) -> str:
+    ruta = ruta.resolve()
+    try:
+        return ruta.relative_to(RAIZ_PROYECTO.resolve()).as_posix()
+    except ValueError:
+        return ruta.name
 
 
 # ──────────────────────────────────────────────────────────────
@@ -107,24 +122,32 @@ def medir_tiempo_inferencia(modelo, loader, device, n_repeticiones: int = 3) -> 
     """
     modelo.eval()
     tiempos = []
+    total_ultima_repeticion = 0
 
     for _ in range(n_repeticiones):
-        t0 = time.time()
+        tiempo_modelo = 0.0
+        total = 0
         with torch.no_grad():
-            total = 0
             for grids, _ in loader:
                 grids = grids.to(device, non_blocking=True)
+                _sincronizar_cuda(device)
+                t0 = time.perf_counter()
                 modelo(grids)
+                _sincronizar_cuda(device)
+                tiempo_modelo += time.perf_counter() - t0
                 total += grids.size(0)
-        tiempos.append(time.time() - t0)
+        tiempos.append(tiempo_modelo)
+        total_ultima_repeticion = total
 
     tiempo_total_prom = np.mean(tiempos)
-    tiempo_por_muestra_ms = (tiempo_total_prom / total) * 1000
+    tiempo_por_muestra_ms = (tiempo_total_prom / total_ultima_repeticion) * 1000
 
     return {
         "tiempo_inferencia_total_s":       round(float(tiempo_total_prom), 4),
         "tiempo_inferencia_promedio_ms":    round(float(tiempo_por_muestra_ms), 4),
-        "n_muestras_test":                 int(total),
+        "n_muestras_test":                 int(total_ultima_repeticion),
+        "protocolo_tiempo": "solo forward; excluye carga y transferencia CPU-GPU",
+        "repeticiones_inferencia": int(n_repeticiones),
     }
 
 
@@ -135,83 +158,113 @@ def medir_tiempo_inferencia(modelo, loader, device, n_repeticiones: int = 3) -> 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--resolucion", type=int, default=32, choices=[32, 64])
+    parser.add_argument(
+        "--backend", choices=["octree_native", "dense_reference"],
+        default="octree_native",
+    )
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--patience", type=int, default=20,
                         help="Early stopping: epocas sin mejora antes de parar")
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--limite_train", type=int, default=None,
-                        help="Usar solo las primeras N muestras de train "
+                        help="Usar N muestras balanceadas de train "
                              "(smoke test rapido, no afecta el uso normal)")
     parser.add_argument("--limite_val", type=int, default=None,
-                        help="Usar solo las primeras N muestras de val")
+                        help="Usar N muestras balanceadas de val")
     parser.add_argument("--limite_test", type=int, default=None,
-                        help="Usar solo las primeras N muestras de test")
+                        help="Usar N muestras balanceadas de test")
     parser.add_argument("--tag", type=str, default="",
                         help="Sufijo para checkpoint/logs/resultados, para no "
                              "sobreescribir una corrida completa (ej. '_smoke')")
+    parser.add_argument("--data-root", type=Path, default=RAIZ_PROYECTO / "data")
+    parser.add_argument(
+        "--particion-manifest", type=Path,
+        default=RAIZ_PROYECTO / "logs" / "particion_objetivo2_modelos.json",
+    )
+    parser.add_argument(
+        "--checkpoints-dir", type=Path, default=RAIZ_PROYECTO / "checkpoints",
+    )
+    parser.add_argument("--logs-dir", type=Path, default=RAIZ_PROYECTO / "logs")
+    parser.add_argument(
+        "--resultados-dir", type=Path,
+        default=RAIZ_PROYECTO / "resultados" / "objetivo3",
+    )
+    parser.add_argument("--num-workers", type=int, default=4)
     args = parser.parse_args()
 
     R = args.resolucion
 
+    if args.backend == "octree_native":
+        raise NotImplementedError(
+            "El backend OctNet nativo esta pendiente. La implementacion con "
+            "nn.Conv3d no puede usarse como resultado oficial del objetivo 3."
+        )
+    if not args.tag:
+        raise ValueError(
+            "La referencia densa es solo diagnostica y requiere --tag "
+            "(por ejemplo, --tag _smoke_dense)."
+        )
+
     print("=" * 60)
-    print(f"  FASE 3: NET5-OCTREE — Resolucion {R}^3")
+    print(f"  DIAGNOSTICO DENSO TABLA 5 — Resolucion {R}^3")
     print("=" * 60)
 
     set_global_seed(SEED)
     device = get_device()
 
-    for d in (DIR_CKPT, DIR_LOGS, DIR_RESULTADOS):
+    for d in (args.checkpoints_dir, args.logs_dir, args.resultados_dir):
         d.mkdir(parents=True, exist_ok=True)
 
-    # Particion train/val
-    npz_path = DIR_LOGS / "particion_indices.npz"
-    if npz_path.exists():
-        data      = np.load(str(npz_path))
-        idx_train = data["idx_train"]
-        idx_val   = data["idx_val"]
-    else:
-        particion = particionar_dataset(seed=SEED)
-        idx_train = np.array(particion["train"]["indices"])
-        idx_val   = np.array(particion["val"]["indices"])
+    raiz_resolucion = args.data_root / f"octrees_{R}"
+    idx_train, idx_val, idx_test, particion = cargar_o_crear_particion(
+        raiz_resolucion=raiz_resolucion,
+        ruta_manifest=args.particion_manifest,
+        seed=SEED,
+        val_split=0.10,
+    )
+    _, etiquetas_train_total, _ = listar_muestras_octree(
+        raiz_resolucion, "train",
+    )
+    _, etiquetas_test, _ = listar_muestras_octree(raiz_resolucion, "test")
+    idx_train = seleccionar_subconjunto_balanceado(
+        idx_train, etiquetas_train_total, args.limite_train, SEED,
+    )
+    idx_val = seleccionar_subconjunto_balanceado(
+        idx_val, etiquetas_train_total, args.limite_val, SEED,
+    )
+    idx_test = seleccionar_subconjunto_balanceado(
+        idx_test, etiquetas_test, args.limite_test, SEED,
+    )
 
-    idx_test = None
-    if args.limite_train is not None:
-        idx_train = idx_train[:args.limite_train]
-    if args.limite_val is not None:
-        idx_val = idx_val[:args.limite_val]
-    if args.limite_test is not None:
-        idx_test = np.arange(args.limite_test)
-
-    # DataLoaders (formato disperso, materializacion a denso al vuelo)
-    raiz_resolucion = RAIZ_DATA / f"octrees_{R}"
-    loader_train, loader_val, loader_test = crear_dataloaders_octree(
+    loader_train, loader_val, loader_test = crear_dataloaders_densos_referencia(
         raiz_resolucion=str(raiz_resolucion),
         resolucion=R,
         idx_train=idx_train,
         idx_val=idx_val,
         idx_test=idx_test,
         batch_size=args.batch_size,
-        num_workers=4,
+        num_workers=args.num_workers,
         seed=SEED,
     )
 
-    # Modelo, criterio, optimizador, scheduler
-    modelo, device = crear_modelo(resolucion=R, device=device)
+    modelo, device = crear_modelo_denso_referencia(resolucion=R, device=device)
     criterio    = nn.CrossEntropyLoss()
     optimizador = optim.Adam(modelo.parameters(), lr=args.lr, weight_decay=1e-4)
     scheduler   = optim.lr_scheduler.StepLR(optimizador, step_size=20, gamma=0.7)
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
 
     # Archivos de log
-    csv_path  = DIR_LOGS  / f"net5_historial_R{R}{args.tag}.csv"
-    json_path = DIR_LOGS  / f"net5_historial_R{R}{args.tag}.json"
-    ckpt_path = DIR_CKPT  / f"net5_mejor_R{R}{args.tag}.pth"
+    csv_path = args.logs_dir / f"dense_tabla5_historial_R{R}{args.tag}.csv"
+    json_path = args.logs_dir / f"dense_tabla5_historial_R{R}{args.tag}.json"
+    ckpt_path = args.checkpoints_dir / f"dense_tabla5_mejor_R{R}{args.tag}.pth"
 
     historial = []
-    mejor_val_acc    = 0.0
+    mejor_val_acc = float("-inf")
     epocas_sin_mejora = 0
 
-    with open(csv_path, "w", newline="") as f:
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
         csv.writer(f).writerow(
             ["epoca", "train_loss", "train_acc", "val_loss", "val_acc", "lr", "tiempo_s"]
         )
@@ -223,17 +276,20 @@ def main():
     print(f"  Train batches: {len(loader_train)}")
     print(f"  Val   batches: {len(loader_val)}\n")
 
-    t_inicio = time.time()
+    _sincronizar_cuda(device)
+    t_inicio = time.perf_counter()
 
     for epoca in range(1, args.epochs + 1):
-        t_ep = time.time()
+        _sincronizar_cuda(device)
+        t_ep = time.perf_counter()
 
         train_loss, train_acc = entrenar_epoca(modelo, loader_train, criterio, optimizador, device)
         val_loss,   val_acc   = evaluar(modelo, loader_val, criterio, device, "Val")
 
         scheduler.step()
         lr_actual = scheduler.get_last_lr()[0]
-        t_ep = time.time() - t_ep
+        _sincronizar_cuda(device)
+        t_ep = time.perf_counter() - t_ep
 
         # Checkpoint si mejora
         es_mejor = val_acc > mejor_val_acc
@@ -266,7 +322,7 @@ def main():
         # Log
         fila = [epoca, round(train_loss,6), round(train_acc,6),
                 round(val_loss,6), round(val_acc,6), round(lr_actual,8), round(t_ep,2)]
-        with open(csv_path, "a", newline="") as f:
+        with open(csv_path, "a", encoding="utf-8", newline="") as f:
             csv.writer(f).writerow(fila)
 
         historial.append({
@@ -275,8 +331,9 @@ def main():
             "val_acc": round(val_acc,6), "lr": round(lr_actual,8),
             "tiempo_s": round(t_ep,2),
         })
-        with open(json_path, "w") as f:
-            json.dump(historial, f, indent=2)
+        with open(json_path, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(historial, f, indent=2, ensure_ascii=False)
+            f.write("\n")
 
         # Early stopping
         if epocas_sin_mejora >= args.patience:
@@ -284,7 +341,8 @@ def main():
                   f"Deteniendo en epoca {epoca}.")
             break
 
-    t_total = (time.time() - t_inicio) / 60
+    _sincronizar_cuda(device)
+    t_total = (time.perf_counter() - t_inicio) / 60
 
     # Evaluacion final en test con el mejor modelo
     print("\n[Test] Cargando mejor modelo y evaluando...")
@@ -295,14 +353,6 @@ def main():
     # Matriz de confusion y reporte por clase
     print("[Test] Generando matriz de confusion...")
     from sklearn.metrics import confusion_matrix, classification_report
-    CLASES = [
-        "airplane","bathtub","bed","bench","bookshelf","bottle","bowl","car",
-        "chair","cone","cup","curtain","desk","door","dresser","flower_pot",
-        "glass_box","guitar","keyboard","lamp","laptop","mantel","monitor",
-        "night_stand","person","piano","plant","radio","range_hood","sink",
-        "sofa","stairs","stool","table","tent","toilet","tv_stand","vase",
-        "wardrobe","xbox",
-    ]
     todas_pred, todas_real = [], []
     modelo.eval()
     with torch.no_grad():
@@ -330,7 +380,7 @@ def main():
                    if device.type == "cuda" else 0.0
 
     print("\n" + "=" * 60)
-    print(f"  ENTRENAMIENTO COMPLETADO — Net5 R={R}^3")
+    print(f"  DIAGNOSTICO DENSO COMPLETADO — R={R}^3")
     print("=" * 60)
     print(f"  Tiempo total    : {t_total:.1f} min")
     print(f"  Mejor Val Acc   : {mejor_val_acc*100:.2f}%  (ep {ckpt['epoca']})")
@@ -340,10 +390,39 @@ def main():
     print(f"  Tamano modelo   : {tamano_mb:.2f} MB")
     print("=" * 60)
 
+    limites_activos = any(
+        limite is not None
+        for limite in (args.limite_train, args.limite_val, args.limite_test)
+    )
     resumen = {
+        "schema_name": "dense-table5-diagnostic",
+        "schema_version": "1.0.0",
+        "alcance": "PARCIAL_DIAGNOSTICO" if limites_activos else "COMPLETO_DIAGNOSTICO",
+        "valido_como_resultado_objetivo3": False,
+        "motivo_no_valido": (
+            "Usa nn.Conv3d sobre una rejilla densa; no implementa las "
+            "operaciones OctNet sobre el grid-octree."
+        ),
+        "backend": "dense_reference",
         "resolucion": R,
         "profundidad_octree": 5 if R == 32 else 6,
         "seed": SEED,
+        "particion": {
+            "manifest": _ruta_portable(args.particion_manifest),
+            "metodo": particion["metodo"],
+            "n_train_total": particion["n_train_total"],
+            "n_train_usado": len(loader_train.dataset),
+            "n_val_usado": len(loader_val.dataset),
+            "n_test_usado": len(loader_test.dataset),
+        },
+        "configuracion": {
+            "epochs_max": args.epochs,
+            "patience": args.patience,
+            "batch_size": args.batch_size,
+            "lr": args.lr,
+            "weight_decay": 1e-4,
+            "scheduler": "StepLR(step_size=20, gamma=0.7)",
+        },
         "mejor_val_acc":  round(float(mejor_val_acc), 6),
         "mejor_epoca":    int(ckpt["epoca"]),
         "test_acc":       round(float(test_acc), 6),
@@ -356,8 +435,10 @@ def main():
         **metricas_inf,
     }
 
-    with open(DIR_RESULTADOS / f"resumen_net5_R{R}{args.tag}.json", "w") as f:
+    salida = args.resultados_dir / f"resumen_dense_tabla5_R{R}{args.tag}.json"
+    with salida.open("w", encoding="utf-8", newline="\n") as f:
         json.dump(resumen, f, indent=2)
+        f.write("\n")
 
     return resumen
 
