@@ -1,0 +1,25 @@
+{
+  "schema_name": "hce-training-results-validation",
+  "schema_version": "1.0.0",
+  "resoluciones_solicitadas": [
+    32,
+    64
+  ],
+  "validacion_completa": true,
+  "validaciones": [
+    {
+      "resolucion": 32,
+      "archivo_resultado": "resumen_hce_R32.json",
+      "archivo_contrato": "contrato_hce_R32.json",
+      "valido": true,
+      "errores": []
+    },
+    {
+      "resolucion": 64,
+      "archivo_resultado": "resumen_hce_R64.json",
+      "archivo_contrato": "contrato_hce_R64.json",
+      "valido": true,
+      "errores": []
+    }
+  ]
+}
