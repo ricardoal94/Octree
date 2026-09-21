@@ -1,116 +1,103 @@
-# Objetivo específico 3 - Net5 (enfoque profundo basado en octrees)
+# Objetivo específico 3 — estado del enfoque profundo
 
-Este flujo implementa, entrena y configura Net5 -- la variante de **capacidad
-fija** de OctNet (Riegler, Ulusoy, Geiger, *"OctNet: Learning Deep 3D
-Representations at High Resolutions"*, CVPR 2017), documentada en la **Tabla
-4** del material suplementario del paper -- adaptada a 4 canales de entrada
-(ocupación + normal promedio) y 40 clases de salida (ModelNet40), bajo las
-mismas particiones de datos y semilla (`seed=42`) del Objetivo 2.
+## Estado actual
 
-Ver el docstring de [`net5_modelo.py`](net5_modelo.py) para el detalle
-completo de la arquitectura y su correspondencia con la Tabla 4 del paper.
+El backend **OctNet nativo todavía no está implementado**. El código incluido
+en esta carpeta permite probar la topología de capacidad fija de la Tabla 5
+del material suplementario de Riegler, Ulusoy y Geiger (CVPR 2017), pero lo
+hace con `torch.nn.Conv3d` sobre una rejilla densa `(4, R, R, R)`.
 
-## Prerrequisito
+Por tanto:
 
-Los octrees definitivos de `data/octrees_32/` y `data/octrees_64/` deben
-existir (generados en la Fase 2), y la partición Objetivo 1/2 debe estar
-disponible en `logs/particion_indices.npz` (generada por
-`fase1_modelnet40/fase1_setup.py`, `seed=42`).
+- la referencia densa no debe denominarse Net5/OctNet en los resultados;
+- sus métricas no son evidencia válida del Objetivo 3;
+- los entrenamientos oficiales deben esperar al backend que opere
+  directamente sobre la jerarquía `grid-octree`.
 
-## 1. Prueba de integración corta (recomendada antes de cualquier entrenamiento)
+El contrato que debe cumplir ese backend está en
+[`CONTRATO_BACKEND_OCTNET.md`](CONTRATO_BACKEND_OCTNET.md).
 
-```bash
-python -m pytest tests/test_net5_integracion.py -v
+## Arquitectura de referencia
+
+La variante de capacidad fija está descrita en la **Tabla 5**, no en la Tabla
+4, del material suplementario de *OctNet: Learning Deep 3D Representations at
+High Resolutions*. La adaptación diagnóstica usa cuatro canales de entrada
+(ocupación y normal promedio) y 40 logits para ModelNet40.
+
+`net5_modelo.py` conserva esa topología únicamente como referencia densa. La
+función genérica `crear_modelo()` falla de forma explícita para impedir que
+esa CNN se presente accidentalmente como OctNet.
+
+## Partición experimental
+
+`particion_objetivo2.py` reproduce la partición empleada realmente por HCE:
+
+```python
+train_test_split(
+    indices,
+    test_size=0.10,
+    random_state=42,
+    shuffle=True,
+    stratify=y,
+)
 ```
 
-Para R=32 y R=64, sobre un subconjunto pequeño (8 muestras `train` + 4
-`val`) tomado de la partición real del Objetivo 2, verifica:
+El manifiesto `logs/particion_objetivo2_modelos.json` guarda identificadores
+portables `clase/modelo`, no posiciones dependientes del equipo. El mismo
+manifiesto debe validarse en R=32 y R=64, de modo que ambos enfoques usen
+exactamente los mismos objetos en train, validación y test.
 
-1. Carga de datos reales (octree disperso `.npz` -> grid denso `(4,R,R,R)`).
-2. Dimensiones de entrada/salida del modelo.
-3. Propagación hacia adelante (`forward`).
-4. Propagación hacia atrás (`backward`, gradientes no nulos en todos los
-   parámetros).
-5. Cálculo de la pérdida (`CrossEntropyLoss`).
-6. Guardado y recarga del checkpoint (los logits del modelo recargado
-   coinciden con los del original).
-7. Igualdad del número de parámetros entre R=32 y R=64 (propiedad de
-   capacidad fija de la Tabla 4).
+## Pruebas
 
-Evidencia de la última ejecución: `resultados/evidencia_prueba_integracion_net5.txt`.
+Las pruebas generales, que no requieren PyTorch ni el dataset local, se
+ejecutan con:
 
-### 1a. Informe detallado con valores medidos (para documentar el Objetivo 3)
+```bash
+python -m pytest
+```
 
-`pytest` solo informa pass/fail. Para un informe con los valores concretos
-de cada punto (dimensiones, número de parámetros, valor de la pérdida,
-norma del gradiente, tamaño del checkpoint en MB, etc.), ejecute:
+La integración densa con los octrees reales es una prueba local y
+diagnóstica. Si PyTorch o `data/octrees_{32,64}` no están disponibles, pytest
+la omite:
+
+```bash
+python -m pytest -m dataset tests/test_net5_integracion.py -v
+```
+
+También puede generarse un JSON diagnóstico con valores de forward, backward
+y recarga de checkpoint:
 
 ```bash
 python fase3_net5/verificar_integracion_net5.py
 ```
 
-Genera `resultados/verificacion_integracion_net5.json` con, para R=32 y
-R=64: origen y semilla de la partición usada, forma y dtype del grid
-cargado, arquitectura y número de parámetros del modelo, forma y rango de
-los logits de salida, valor de `CrossEntropyLoss`, número de parámetros
-que recibieron gradiente y su norma L2 total, verificación de que
-`optimizer.step()` efectivamente modificó los pesos, y tamaño en MB +
-verificación de que los logits coinciden tras recargar el checkpoint.
-También reporta si el número de parámetros es idéntico entre R=32 y R=64
-(propiedad de capacidad fija de la Tabla 4 de OctNet).
+La salida predeterminada es
+`resultados/objetivo3/verificacion_dense_tabla5.json` y queda marcada con
+`valido_como_resultado_objetivo3: false`.
 
-Argumentos opcionales: `--n-train`, `--n-val`, `--resoluciones`, `--salida`.
+## Smoke test de la referencia densa
 
-### 1b. Smoke test del script de entrenamiento real (opcional)
-
-Para ejercitar `fase3_net5_entrenamiento.py` de punta a punta (loop de
-entrenamiento, scheduler, early stopping, matriz de confusión, medición de
-tiempo de inferencia y guardado de checkpoint) sin correr las ~9 800 muestras
-completas, use `--limite_train/--limite_val/--limite_test` con `--tag` para
-no pisar los archivos de una corrida real:
+La ejecución exige `--backend dense_reference` y un `--tag` para evitar que
+se confunda con una corrida oficial:
 
 ```bash
-python fase3_net5/fase3_net5_entrenamiento.py --resolucion 32 \
-  --limite_train 10 --limite_val 4 --limite_test 6 \
-  --epochs 2 --batch_size 4 --patience 5 --tag _smoke
-
-python fase3_net5/fase3_net5_entrenamiento.py --resolucion 64 \
-  --limite_train 10 --limite_val 4 --limite_test 6 \
-  --epochs 2 --batch_size 4 --patience 5 --tag _smoke
+python fase3_net5/fase3_net5_entrenamiento.py \
+  --resolucion 32 --backend dense_reference --tag _smoke_dense \
+  --limite_train 80 --limite_val 40 --limite_test 80 \
+  --epochs 2 --batch_size 4 --num-workers 0
 ```
 
-Genera `checkpoints/net5_mejor_R{32,64}_smoke.pth`,
-`logs/net5_historial_R{32,64}_smoke.{csv,json}` y
-`resultados/resumen_net5_R{32,64}_smoke.json` (no versionados: son solo para
-verificación local). Ambas resoluciones corrieron exitosamente en la GPU de
-desarrollo (RTX 5070) en ~5 s por corrida.
+Los límites seleccionan muestras con cobertura balanceada de clases; no se
+toman simplemente los primeros objetos del test. El informe resultante usa
+el esquema `dense-table5-diagnostic` y nunca debe incorporarse a las tablas
+comparativas del Objetivo 3.
 
-## 2. Entrenamiento completo
+## Pendiente para cerrar el Objetivo 3
 
-```bash
-python fase3_net5/fase3_net5_entrenamiento.py --resolucion 32
-python fase3_net5/fase3_net5_entrenamiento.py --resolucion 64
-```
-
-Argumentos opcionales: `--epochs`, `--patience` (early stopping sobre
-`val_acc`), `--batch_size`, `--lr`.
-
-Usa la partición train/val/test del Objetivo 2 (`logs/particion_indices.npz`,
-`seed=42`), Adam + `CrossEntropyLoss`, *early stopping* según val accuracy, y
-no aplica aumento de datos (criterio de equivalencia, sección 6.6 de la
-metodología). Cada ejecución guarda:
-
-```text
-checkpoints/net5_mejor_R32.pth
-checkpoints/net5_mejor_R64.pth
-logs/net5_historial_R32.csv / .json
-logs/net5_historial_R64.csv / .json
-resultados/resumen_net5_R32.json
-resultados/resumen_net5_R64.json
-```
-
-El resumen incluye exactitud de validación/prueba, matriz de confusión y
-reporte de clasificación por clase (40 clases), tiempo de entrenamiento e
-inferencia, VRAM pico y tamaño del modelo en disco -- insumos para la Fase 4
-(medición de costo computacional) y la comparación con el enfoque HCE del
-Objetivo 2.
+1. Implementar o integrar operaciones de convolución, pooling y unpooling
+   directamente sobre el `grid-octree`.
+2. Conectar la topología de capacidad fija de la Tabla 5 a ese backend.
+3. Verificar forward, backward, checkpoint y consumo de memoria sin expandir
+   las entradas a `R³`.
+4. Entrenar R=32 y R=64 completos con el mismo manifiesto del Objetivo 2.
+5. Evaluar las 2.468 muestras del test oficial y generar evidencia trazable.
