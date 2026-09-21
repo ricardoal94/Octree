@@ -140,6 +140,16 @@ def main():
                         help="Early stopping: epocas sin mejora antes de parar")
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--limite_train", type=int, default=None,
+                        help="Usar solo las primeras N muestras de train "
+                             "(smoke test rapido, no afecta el uso normal)")
+    parser.add_argument("--limite_val", type=int, default=None,
+                        help="Usar solo las primeras N muestras de val")
+    parser.add_argument("--limite_test", type=int, default=None,
+                        help="Usar solo las primeras N muestras de test")
+    parser.add_argument("--tag", type=str, default="",
+                        help="Sufijo para checkpoint/logs/resultados, para no "
+                             "sobreescribir una corrida completa (ej. '_smoke')")
     args = parser.parse_args()
 
     R = args.resolucion
@@ -165,6 +175,14 @@ def main():
         idx_train = np.array(particion["train"]["indices"])
         idx_val   = np.array(particion["val"]["indices"])
 
+    idx_test = None
+    if args.limite_train is not None:
+        idx_train = idx_train[:args.limite_train]
+    if args.limite_val is not None:
+        idx_val = idx_val[:args.limite_val]
+    if args.limite_test is not None:
+        idx_test = np.arange(args.limite_test)
+
     # DataLoaders (formato disperso, materializacion a denso al vuelo)
     raiz_resolucion = RAIZ_DATA / f"octrees_{R}"
     loader_train, loader_val, loader_test = crear_dataloaders_octree(
@@ -172,6 +190,7 @@ def main():
         resolucion=R,
         idx_train=idx_train,
         idx_val=idx_val,
+        idx_test=idx_test,
         batch_size=args.batch_size,
         num_workers=4,
         seed=SEED,
@@ -184,9 +203,9 @@ def main():
     scheduler   = optim.lr_scheduler.StepLR(optimizador, step_size=20, gamma=0.7)
 
     # Archivos de log
-    csv_path  = DIR_LOGS  / f"net5_historial_R{R}.csv"
-    json_path = DIR_LOGS  / f"net5_historial_R{R}.json"
-    ckpt_path = DIR_CKPT  / f"net5_mejor_R{R}.pth"
+    csv_path  = DIR_LOGS  / f"net5_historial_R{R}{args.tag}.csv"
+    json_path = DIR_LOGS  / f"net5_historial_R{R}{args.tag}.json"
+    ckpt_path = DIR_CKPT  / f"net5_mejor_R{R}{args.tag}.pth"
 
     historial = []
     mejor_val_acc    = 0.0
@@ -227,7 +246,7 @@ def main():
                 "mejor_val_acc": mejor_val_acc,
                 "resolucion": R,
             }, ckpt_path)
-            marca = " ← mejor"
+            marca = " <- mejor"
         else:
             epocas_sin_mejora += 1
             marca = ""
@@ -292,8 +311,10 @@ def main():
             logits = modelo(grids)
             todas_pred.extend(logits.argmax(1).cpu().numpy().tolist())
             todas_real.extend(etiquetas.numpy().tolist())
-    matriz_conf = confusion_matrix(todas_real, todas_pred).tolist()
+    etiquetas_40 = list(range(len(CLASES)))
+    matriz_conf = confusion_matrix(todas_real, todas_pred, labels=etiquetas_40).tolist()
     reporte_cls = classification_report(todas_real, todas_pred,
+                                        labels=etiquetas_40,
                                         target_names=CLASES,
                                         output_dict=True, zero_division=0)
 
@@ -335,7 +356,7 @@ def main():
         **metricas_inf,
     }
 
-    with open(DIR_RESULTADOS / f"resumen_net5_R{R}.json", "w") as f:
+    with open(DIR_RESULTADOS / f"resumen_net5_R{R}{args.tag}.json", "w") as f:
         json.dump(resumen, f, indent=2)
 
     return resumen

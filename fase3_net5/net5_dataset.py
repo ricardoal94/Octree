@@ -116,16 +116,21 @@ def crear_dataloaders_octree(
     resolucion: int,
     idx_train: np.ndarray,
     idx_val: np.ndarray,
+    idx_test: np.ndarray = None,
     batch_size: int = 16,
     num_workers: int = 4,
     seed: int = 42,
 ) -> tuple:
     """Crea DataLoaders de train, val y test para Net5Octree, a partir
-    del formato disperso (materializacion a denso ocurre en __getitem__)."""
+    del formato disperso (materializacion a denso ocurre en __getitem__).
+
+    idx_test=None (por defecto) usa el conjunto de prueba oficial completo;
+    se puede pasar un subconjunto de indices para pruebas rapidas (smoke
+    tests) de la propia rutina de entrenamiento."""
 
     ds_train = OctreeDataset(raiz_resolucion, resolucion, "train", idx_train)
     ds_val   = OctreeDataset(raiz_resolucion, resolucion, "val",   idx_val)
-    ds_test  = OctreeDataset(raiz_resolucion, resolucion, "test",  None)
+    ds_test  = OctreeDataset(raiz_resolucion, resolucion, "test",  idx_test)
 
     g = torch.Generator()
     g.manual_seed(seed)

@@ -1,25 +1,55 @@
 """
 net5_modelo.py - Fase 3 (Enfoque profundo)
 ===========================================
-Implementacion de Net5: red convolucional jerarquica que opera sobre
-los grids de octree (4, R, R, R) generados en la Fase 2.
+Implementacion de Net5 operando sobre los grids de octree densos
+(4, R, R, R) generados en la Fase 2.
 
-Arquitectura (segun metodologia "red convolucional jerarquica que opera
-sobre los nodos del octree"):
+Fuente de la arquitectura
+--------------------------
+Net5 corresponde a la variante de **capacidad fija** ("keep the capacity
+of the model, i.e., the number of parameters, constant") de OctNet
+(Riegler, Ulusoy, Geiger, "OctNet: Learning Deep 3D Representations at
+High Resolutions", CVPR 2017), documentada en la **Tabla 4** ("Network
+Architectures ModelNet10 Classification") del material suplementario del
+paper: https://www.cvlibs.net/publications/Riegler2017CVPR_supplementary.pdf
 
-    Entrada  : (B, 4, R, R, R)  — 4 canales: [ocupacion, nx, ny, nz]
-    5 bloques Conv3D jerarquicos (con stride=2 para reduccion espacial)
-    Global Average Pooling 3D
-    3 capas FC con Dropout
-    Salida   : (B, 40) logits
+La Tabla 4 define 5 bloques de dos convoluciones 3^3 cada uno, con
+canales FIJOS independientes de la resolucion de entrada:
 
-La jerarquia de stride=2 imita la estructura del octree:
-    R=32: 32 -> 16 -> 8 -> 4 -> 2 -> 1  (5 niveles = profundidad L=5)
-    R=64: 64 -> 32 -> 16 -> 8 -> 4 -> 2 -> 1  (6 niveles = L=6)
+    Bloque 1: conv(Cin, 8)  -> conv(8, 14)
+    Bloque 2: conv(14, 14)  -> conv(14, 20)
+    Bloque 3: conv(20, 20)  -> conv(20, 26)
+    Bloque 4: conv(26, 26)  -> conv(26, 32)
+    Bloque 5: conv(32, 32)  -> conv(32, 32)
 
-Esto hace que cada nivel convolucional corresponda a un nivel del octree,
-siendo "jerarquica" en el sentido literal de la metodologia.
+seguidos de Dropout(0.5) -> FC(512) -> FC(num_clases) -> SoftMax.
+
+Lo que varia segun la resolucion de entrada R es *cuantos* de esos 5
+bloques terminan en maxpool(2): la tabla aplica maxpool "eliminando
+capas de pooling desde el inicio de la red" para resoluciones menores,
+de forma que TODAS las resoluciones terminan en 8^3 antes del
+clasificador FC y el numero de parametros de la red permanece
+constante. El numero de maxpool necesarios es:
+
+    N_pool(R) = log2(R / 8)
+
+y se aplican en los ULTIMOS N_pool bloques:
+
+    R=32^3 (N_pool=2): bloques 1-3 sin pool, pool tras bloques 4 y 5
+                       32 -> 32 -> 32 -> 32 -> 16 -> 8
+    R=64^3 (N_pool=3): bloques 1-2 sin pool, pool tras bloques 3, 4 y 5
+                       64 -> 64 -> 64 -> 32 -> 16 -> 8
+
+Adaptaciones respecto al paper original (segun Objetivo 3 de la tesis):
+  - Canales de entrada: 4 (ocupacion + normal promedio nx, ny, nz) en
+    vez de 1 (solo ocupacion binaria), acorde a la codificacion de hojas
+    definida en la Fase 2 (preprocesar_octrees.py / octree_real.py).
+  - Capa de salida: 40 clases (ModelNet40) en vez de 10 (ModelNet10).
+  - La capa SoftMax final se omite porque nn.CrossEntropyLoss ya la
+    aplica internamente sobre los logits.
 """
+
+import math
 
 import torch
 import torch.nn as nn
@@ -27,129 +57,128 @@ import torch.nn.functional as F
 
 
 # ──────────────────────────────────────────────────────────────
-# BLOQUE BASICO: Conv3D + BN + ReLU
+# BLOQUE BASICO: conv(Cin, Cout) 3^3, stride 1 + ReLU (notacion Tabla 4)
 # ──────────────────────────────────────────────────────────────
 
-class ConvBnRelu3D(nn.Module):
-    """Conv3D(stride=1) → BatchNorm3D → ReLU."""
-    def __init__(self, in_ch: int, out_ch: int, kernel: int = 3,
-                 stride: int = 1, padding: int = 1):
-        super().__init__()
-        self.conv = nn.Conv3d(in_ch, out_ch, kernel_size=kernel,
-                              stride=stride, padding=padding, bias=False)
-        self.bn   = nn.BatchNorm3d(out_ch)
+class ConvReLU3D(nn.Module):
+    """conv(C_in, C_out): Conv3D 3x3x3, stride 1, padding 'same' + ReLU."""
 
-    def forward(self, x):
-        return F.relu(self.bn(self.conv(x)))
-
-
-class BloqueJerarquico(nn.Module):
-    """
-    Bloque jerarquico del octree: dos Conv3D (la primera con stride=2
-    para reducir la resolucion espacial a la mitad, igual que pasar al
-    nivel padre en el octree) seguidas de una conexion residual ligera.
-    """
     def __init__(self, in_ch: int, out_ch: int):
         super().__init__()
-        self.conv1 = ConvBnRelu3D(in_ch, out_ch, stride=2, padding=1)
-        self.conv2 = ConvBnRelu3D(out_ch, out_ch, stride=1, padding=1)
+        self.conv = nn.Conv3d(in_ch, out_ch, kernel_size=3, stride=1, padding=1)
 
-        # Proyeccion residual (si los canales cambian)
-        self.shortcut = nn.Sequential(
-            nn.Conv3d(in_ch, out_ch, kernel_size=1, stride=2, bias=False),
-            nn.BatchNorm3d(out_ch),
-        ) if in_ch != out_ch else nn.Sequential(
-            nn.AvgPool3d(kernel_size=2, stride=2),
-        )
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return F.relu(self.conv(x))
 
-    def forward(self, x):
-        residual = self.shortcut(x)
-        x = self.conv1(x)
-        x = self.conv2(x)
-        return F.relu(x + residual)
+
+class BloqueOctNet(nn.Module):
+    """
+    Un bloque de la Tabla 4: dos conv(3^3) consecutivas seguidas de un
+    maxpool(2) opcional. El maxpool se omite en los bloques iniciales
+    para las resoluciones de entrada menores, manteniendo el numero de
+    parametros de la red fijo independientemente de R (ver docstring
+    del modulo).
+    """
+
+    def __init__(self, in_ch: int, mid_ch: int, out_ch: int, con_pool: bool):
+        super().__init__()
+        self.conv_a = ConvReLU3D(in_ch, mid_ch)
+        self.conv_b = ConvReLU3D(mid_ch, out_ch)
+        self.pool = nn.MaxPool3d(kernel_size=2, stride=2) if con_pool else None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.conv_a(x)
+        x = self.conv_b(x)
+        if self.pool is not None:
+            x = self.pool(x)
+        return x
+
+
+# Canales (mid, out) de los 5 bloques de la Tabla 4 -- fijos, no dependen de R
+_CANALES_BLOQUES = [
+    (8, 14),
+    (14, 20),
+    (20, 26),
+    (26, 32),
+    (32, 32),
+]
 
 
 # ──────────────────────────────────────────────────────────────
-# NET5 — RED CONVOLUCIONAL JERARQUICA SOBRE OCTREE
+# NET5 — VARIANTE DE CAPACIDAD FIJA DE OCTNET (TABLA 4)
 # ──────────────────────────────────────────────────────────────
 
 class Net5Octree(nn.Module):
     """
-    Red convolucional jerarquica (Net5) que opera sobre grids de octree.
+    Net5: red convolucional jerarquica basada en la Tabla 4 (arquitectura
+    de capacidad fija) de OctNet, adaptada a 4 canales de entrada y 40
+    clases de salida (ModelNet40).
 
     Parametros
     ----------
     resolucion    : 32 o 64
     num_clases    : 40 para ModelNet40
-    dropout       : tasa de dropout en las capas FC
+    dropout       : tasa de dropout antes del clasificador FC (0.5 en la Tabla 4)
     in_channels   : 4 (ocupacion + nx + ny + nz)
     """
 
-    # Configuracion de canales por nivel del octree
-    # 7 valores: canal inicial + 6 bloques (soporta hasta L=6 para R=64)
-    CANALES = [4, 32, 64, 128, 256, 512, 512]
+    RESOLUCION_BASE = 8  # resolucion espacial final antes del clasificador FC
 
     def __init__(self, resolucion: int = 32, num_clases: int = 40,
-                 dropout: float = 0.3, in_channels: int = 4):
+                 dropout: float = 0.5, in_channels: int = 4):
         super().__init__()
 
         assert resolucion in (32, 64), "Resolucion debe ser 32 o 64"
         self.resolucion = resolucion
-        n_niveles = 5 if resolucion == 32 else 6
+        self.num_clases = num_clases
 
-        # Proyeccion inicial de 4 canales a 32
-        self.proyeccion = ConvBnRelu3D(in_channels, 32, kernel=3, stride=1, padding=1)
+        n_bloques = len(_CANALES_BLOQUES)
+        n_pool = int(round(math.log2(resolucion / self.RESOLUCION_BASE)))
+        assert 0 <= n_pool <= n_bloques, (
+            f"Resolucion {resolucion} requeriria {n_pool} maxpools, "
+            f"pero la red solo tiene {n_bloques} bloques"
+        )
+        self.n_pool = n_pool
 
-        # Bloques jerarquicos (uno por nivel del octree)
         bloques = []
-        canales_in = 32
-        for i in range(n_niveles):
-            canales_out = min(self.CANALES[i + 1], 512)
-            bloques.append(BloqueJerarquico(canales_in, canales_out))
-            canales_in = canales_out
+        canal_in = in_channels
+        for i, (mid, out) in enumerate(_CANALES_BLOQUES):
+            bloque_idx = i + 1  # 1-indexado
+            con_pool = bloque_idx > (n_bloques - n_pool)
+            bloques.append(BloqueOctNet(canal_in, mid, out, con_pool))
+            canal_in = out
         self.bloques = nn.Sequential(*bloques)
 
-        # Global Average Pooling: colapsa la dimension espacial a (B, C, 1, 1, 1)
-        self.gap = nn.AdaptiveAvgPool3d(1)
+        canal_final = _CANALES_BLOQUES[-1][1]  # 32
+        self.dim_fc = canal_final * (self.RESOLUCION_BASE ** 3)
 
-        # Clasificador FC
-        self.fc1 = nn.Linear(canales_in, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, num_clases)
-
-        self.bn_fc1 = nn.BatchNorm1d(512)
-        self.bn_fc2 = nn.BatchNorm1d(256)
         self.dropout = nn.Dropout(p=dropout)
+        self.fc1 = nn.Linear(self.dim_fc, 512)
+        self.fc2 = nn.Linear(512, num_clases)
 
         self._init_pesos()
 
-    def _init_pesos(self):
+    def _init_pesos(self) -> None:
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, nn.Linear):
-                nn.init.xavier_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, (nn.BatchNorm3d, nn.BatchNorm1d)):
-                nn.init.constant_(m.weight, 1)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_normal_(m.weight)
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         x : (B, 4, R, R, R)
-        Retorna logits (B, num_clases)
+        Retorna logits (B, num_clases). La normalizacion SoftMax se
+        omite: nn.CrossEntropyLoss la aplica internamente.
         """
-        x = self.proyeccion(x)    # (B, 32, R, R, R)
-        x = self.bloques(x)       # (B, 512, 1, 1, 1) aprox al final
-
-        x = self.gap(x)           # (B, C, 1, 1, 1)
-        x = x.flatten(1)          # (B, C)
-
-        x = self.dropout(F.relu(self.bn_fc1(self.fc1(x))))
-        x = self.dropout(F.relu(self.bn_fc2(self.fc2(x))))
-        x = self.fc3(x)
-
+        x = self.bloques(x)             # (B, 32, 8, 8, 8)
+        x = x.flatten(1)                # (B, 32*8*8*8)
+        x = self.dropout(x)
+        x = F.relu(self.fc1(x))         # (B, 512)
+        x = self.fc2(x)                 # (B, num_clases)
         return x
 
     def contar_parametros(self) -> int:
@@ -163,7 +192,7 @@ class Net5Octree(nn.Module):
 def get_device() -> torch.device:
     if torch.cuda.is_available():
         device = torch.device("cuda")
-        nombre  = torch.cuda.get_device_name(0)
+        nombre = torch.cuda.get_device_name(0)
         memoria = torch.cuda.get_device_properties(0).total_memory / 1e9
         print(f"[Dispositivo] GPU: {nombre} ({memoria:.1f} GB VRAM)")
     else:
@@ -173,15 +202,14 @@ def get_device() -> torch.device:
 
 
 def crear_modelo(resolucion: int = 32, num_clases: int = 40,
-                 dropout: float = 0.3, device: torch.device = None) -> tuple:
+                 dropout: float = 0.5, device: torch.device = None) -> tuple:
     if device is None:
         device = get_device()
     modelo = Net5Octree(resolucion=resolucion, num_clases=num_clases,
                         dropout=dropout).to(device)
     params = modelo.contar_parametros()
-    n_niveles = 5 if resolucion == 32 else 6
-    print(f"\n[Modelo] Net5-Octree creado:")
-    print(f"  Resolucion    : {resolucion}^3  (L={n_niveles} niveles)")
+    print(f"\n[Modelo] Net5-Octree creado (OctNet Tabla 4, capacidad fija):")
+    print(f"  Resolucion    : {resolucion}^3  (maxpools aplicados={modelo.n_pool})")
     print(f"  Clases        : {num_clases}")
     print(f"  Dropout       : {dropout}")
     print(f"  Parametros    : {params:,}")
@@ -194,11 +222,21 @@ def crear_modelo(resolucion: int = 32, num_clases: int = 40,
 # ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import torch
     torch.manual_seed(42)
 
+    params_r32 = params_r64 = None
     for R in (32, 64):
         modelo, device = crear_modelo(resolucion=R)
         x = torch.randn(2, 4, R, R, R).to(device)
         logits = modelo(x)
-        print(f"  Input {x.shape} -> Output {logits.shape}\n")
+        print(f"  Input {tuple(x.shape)} -> Output {tuple(logits.shape)}\n")
+        if R == 32:
+            params_r32 = modelo.contar_parametros()
+        else:
+            params_r64 = modelo.contar_parametros()
+
+    assert params_r32 == params_r64, (
+        "El numero de parametros deberia ser identico para R=32 y R=64 "
+        "(arquitectura de capacidad fija, Tabla 4 de OctNet)"
+    )
+    print(f"[OK] Parametros identicos en R=32 y R=64: {params_r32:,}")
