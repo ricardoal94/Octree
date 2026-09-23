@@ -6,10 +6,24 @@ from comparar_workers_octnet import (
     ErrorValidacionSmoke,
     construir_comando,
     escribir_consolidado,
+    resolver_particion_manifest,
     ruta_resumen,
     validar_conjunto,
     validar_resumen,
 )
+
+
+def test_manifest_por_defecto_queda_fuera_del_repositorio(tmp_path):
+    logs_dir = tmp_path / "artefactos" / "logs"
+
+    assert resolver_particion_manifest(None, logs_dir) == (
+        logs_dir / "particion_objetivo2_modelos.json"
+    ).resolve()
+
+    ruta_explicita = tmp_path / "particion_existente.json"
+    assert resolver_particion_manifest(ruta_explicita, logs_dir) == (
+        ruta_explicita.resolve()
+    )
 
 
 def _resumen_valido(resolucion=32, workers=4, commit="a" * 40):
