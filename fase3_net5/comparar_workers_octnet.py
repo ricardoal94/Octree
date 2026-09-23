@@ -454,6 +454,17 @@ def _mostrar_comando(comando: list[str]) -> str:
     return shlex.join(comando)
 
 
+def resolver_particion_manifest(
+    ruta_solicitada: Path | None,
+    logs_dir: Path,
+) -> Path:
+    """Mantiene el manifiesto fuera del repositorio salvo ruta explicita."""
+
+    if ruta_solicitada is not None:
+        return ruta_solicitada.resolve()
+    return (logs_dir / "particion_objetivo2_modelos.json").resolve()
+
+
 def _argumentos() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -471,7 +482,11 @@ def _argumentos() -> argparse.Namespace:
     parser.add_argument("--data-root", type=Path, default=RAIZ_PROYECTO / "data")
     parser.add_argument(
         "--particion-manifest", type=Path,
-        default=RAIZ_PROYECTO / "logs" / "particion_objetivo2_modelos.json",
+        default=None,
+        help=(
+            "Ruta del manifiesto; por defecto se guarda con los artefactos "
+            "externos para conservar limpio el repositorio"
+        ),
     )
     parser.add_argument(
         "--artefactos-dir", type=Path,
@@ -519,6 +534,9 @@ def main() -> int:
     checkpoints_dir = artefactos_dir / "checkpoints"
     logs_dir = artefactos_dir / "logs"
     resultados_dir = artefactos_dir / "resultados"
+    particion_manifest = resolver_particion_manifest(
+        args.particion_manifest, logs_dir,
+    )
     comandos = []
     for resolucion in args.resoluciones:
         for workers in args.workers:
@@ -536,7 +554,7 @@ def main() -> int:
                     batch_size=args.batch_size,
                     lotes_perfil=args.lotes_perfil,
                     data_root=args.data_root.resolve(),
-                    particion_manifest=args.particion_manifest.resolve(),
+                    particion_manifest=particion_manifest,
                     checkpoints_dir=checkpoints_dir,
                     logs_dir=logs_dir,
                     resultados_dir=resultados_dir,
