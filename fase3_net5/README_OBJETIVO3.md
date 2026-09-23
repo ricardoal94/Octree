@@ -131,8 +131,8 @@ equipo con PyTorch y los NPZ:
 python fase3_net5/fase3_net5_entrenamiento.py \
   --resolucion 32 --backend octree_native --tag _smoke_native \
   --limite_train 40 --limite_val 40 --limite_test 40 \
-  --epochs 1 --batch_size 1 --num-workers 0 \
-  --exigir-git-limpio --lotes-perfil 3
+  --epochs 1 --batch_size 1 --num-workers 4 \
+  --exigir-git-limpio --exigir-git-publicado --lotes-perfil 3
 ```
 
 Una corrida limitada queda marcada como `PARCIAL_SMOKE`. Solo una corrida
@@ -141,25 +141,44 @@ El backend usa `batch_size=1` de forma predeterminada porque los planes
 dispersos dependen de la topología de cada objeto. Antes de aumentarlo se debe
 comprobar la VRAM con R=64.
 
-La opcion `--exigir-git-limpio` captura la rama, el commit y el estado del
-repositorio antes de crear resultados; la corrida se detiene si existen
-cambios locales. El resumen incluye ademas un `perfil_rendimiento` que separa
-carga del lote, transferencia de atributos, construccion y transferencia de
-planes, y el resto del `forward`. Para R=64 se repite el mismo comando
-cambiando `--resolucion 32` por `--resolucion 64`.
+Las opciones de trazabilidad capturan la rama, el commit, el upstream y el
+estado del repositorio antes de crear resultados; la corrida se detiene si
+existen cambios locales o si el commit no está publicado. El resumen incluye
+además un `perfil_rendimiento` que separa carga del lote, transferencia de
+atributos, preparación y transferencia de planes, y el resto del `forward`.
+Para R=64 se repite el mismo comando cambiando `--resolucion 32` por
+`--resolucion 64`.
 
-La construcción vectorizada de planes ya evita escanear volúmenes R³, pero
-sigue ejecutándose en CPU al cargar cada lote. Por ello esta versión debe
-perfilarse con datos reales antes de programar las corridas completas; si esa
-fase domina el tiempo, el siguiente paso técnico es trasladar la construcción
-del plan a una extensión C++/CUDA, sin cambiar la semántica ya validada.
+La construcción vectorizada de planes evita escanear volúmenes R³. De forma
+predeterminada, los planes se preparan dentro del `DataLoader`; con
+`num_workers > 0` pueden construirse en paralelo antes de que el lote llegue
+al proceso que controla la GPU. Para `batch_size=1`, el backend reutiliza
+directamente los arreglos de cada geometría y evita concatenaciones completas.
+
+El resumen separa dos medidas: `tiempo_inferencia_promedio_ms` incluye solo el
+`forward`, mientras `tiempo_pipeline_promedio_ms` incluye carga, preparación
+geométrica, transferencia y `forward`. También registra memoria e
+interacciones de los planes. La opción `--sin-precalcular-planes` se reserva
+para comparar contra la ruta anterior y no se recomienda para las corridas
+completas.
+
+La trazabilidad distingue un árbol limpio de un commit publicado. Para una
+corrida verificable deben usarse conjuntamente `--exigir-git-limpio` y
+`--exigir-git-publicado`; una evaluación completa queda marcada como no válida
+si el commit no aparece en una referencia remota conocida.
+
+Antes de programar las corridas completas se debe comparar el pipeline con
+`num_workers=0`, `4` y `8`. Si la preparación geométrica continúa dominando el
+tiempo aun en paralelo, el siguiente paso técnico será trasladar esa fase a
+una extensión C++/CUDA, sin cambiar la semántica ya validada.
 
 ## Pendiente para cerrar el Objetivo 3
 
 1. Ejecutar las pruebas PyTorch y el smoke test nativo en la máquina de
    entrenamiento.
-2. Medir tiempo/VRAM y, si es necesario, optimizar el plan disperso antes de
-   las corridas completas.
+2. Medir tiempo de `forward`, tiempo integral, memoria de planes y VRAM con
+   distintos números de trabajadores; si es necesario, optimizar el plan
+   disperso antes de las corridas completas.
 3. Entrenar R=32 y R=64 completos con el mismo manifiesto del Objetivo 2.
 4. Evaluar las 2.468 muestras del test oficial y generar evidencia trazable.
 

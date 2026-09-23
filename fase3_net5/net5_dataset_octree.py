@@ -18,7 +18,11 @@ from torch.utils.data import DataLoader, Dataset
 sys.path.insert(0, str(Path(__file__).parent.parent / "fase2_octree"))
 
 from octree_real import reconstruir_octree_desde_npz  # noqa: E402
-from grid_octree import MuestraGridOctree, convertir_a_grid_octree  # noqa: E402
+from grid_octree import (  # noqa: E402
+    MuestraGridOctree,
+    convertir_a_grid_octree,
+    precalcular_planes_net5,
+)
 from octnet_backend import LoteGridOctree  # noqa: E402
 from particion_objetivo2 import (  # noqa: E402
     CLASES_MODELNET40,
@@ -33,9 +37,11 @@ class OctreeNativeDataset(Dataset):
     """Carga la jerarquia preservada del Objetivo 1 para OctNet."""
 
     def __init__(self, raiz_resolucion: str | Path, resolucion: int,
-                 split: str = "train", idx_subset: np.ndarray | None = None):
+                 split: str = "train", idx_subset: np.ndarray | None = None,
+                 precalcular_planes: bool = True):
         super().__init__()
         self.resolucion = int(resolucion)
+        self.precalcular_planes = bool(precalcular_planes)
         carpeta_split = "train" if split in ("train", "val") else "test"
         rutas, etiquetas, _ = listar_muestras_octree(
             raiz_resolucion, carpeta_split,
@@ -72,6 +78,8 @@ class OctreeNativeDataset(Dataset):
         if etiqueta != etiqueta_esperada:
             raise ValueError("La etiqueta del NPZ no coincide con su carpeta")
         muestra = convertir_a_grid_octree(raiz, self.resolucion)
+        if self.precalcular_planes:
+            precalcular_planes_net5(muestra.geometria)
         return muestra, etiqueta
 
 
@@ -96,17 +104,21 @@ def crear_dataloaders_octree(
     batch_size: int = 16,
     num_workers: int = 4,
     seed: int = 42,
+    precalcular_planes: bool = True,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     """Crea los tres DataLoaders del protocolo oficial."""
 
     ds_train = OctreeNativeDataset(
         raiz_resolucion, resolucion, "train", idx_train,
+        precalcular_planes=precalcular_planes,
     )
     ds_val = OctreeNativeDataset(
         raiz_resolucion, resolucion, "val", idx_val,
+        precalcular_planes=precalcular_planes,
     )
     ds_test = OctreeNativeDataset(
         raiz_resolucion, resolucion, "test", idx_test,
+        precalcular_planes=precalcular_planes,
     )
 
     generador = torch.Generator()
@@ -119,6 +131,11 @@ def crear_dataloaders_octree(
         "persistent_workers": num_workers > 0,
         "collate_fn": collate_grid_octree,
     }
+    if num_workers > 0:
+        # Cada muestra puede transportar planes grandes. Una sola muestra
+        # prefetched por trabajador limita el pico de RAM sin perder el
+        # paralelismo de construccion.
+        comunes["prefetch_factor"] = 1
     loader_train = DataLoader(
         ds_train,
         shuffle=True,

@@ -47,6 +47,21 @@ class PlanConvolucion:
     coeficiente: np.ndarray
     offsets_kernel: np.ndarray
 
+    @property
+    def nbytes(self) -> int:
+        """Memoria ocupada por los arreglos del plan."""
+
+        return int(sum(
+            arreglo.nbytes
+            for arreglo in (
+                self.salida,
+                self.entrada,
+                self.kernel,
+                self.coeficiente,
+                self.offsets_kernel,
+            )
+        ))
+
 
 @dataclass(frozen=True)
 class PlanPooling:
@@ -54,6 +69,12 @@ class PlanPooling:
 
     geometria_salida: "GeometriaGridOctree"
     entrada_a_salida: np.ndarray
+
+    @property
+    def nbytes(self) -> int:
+        """Memoria adicional del mapeo de pooling."""
+
+        return int(self.entrada_a_salida.nbytes)
 
 
 @dataclass(frozen=True)
@@ -139,13 +160,9 @@ class GeometriaGridOctree:
     def plan_pooling(self) -> PlanPooling:
         return construir_plan_pooling(self)
 
-    def indices_voxel_a_hoja(self) -> np.ndarray:
-        """Retorna el mapa plano voxel->hoja para la salida final 8^3.
-
-        Se restringe deliberadamente a resolucion 8: este mapa se usa solo
-        para alimentar la capa totalmente conectada de la Tabla 5 y nunca
-        permite densificar las entradas R=32/R=64.
-        """
+    @cached_property
+    def _mapa_voxel_a_hoja_final(self) -> np.ndarray:
+        """Construye una sola vez el mapa plano de la salida final 8^3."""
 
         if self.resolucion != ARISTA_OCTREE_SUPERFICIAL:
             raise ValueError(
@@ -156,7 +173,19 @@ class GeometriaGridOctree:
             x, y, z = (int(v) for v in origen)
             s = int(tamano)
             mapa[x:x + s, y:y + s, z:z + s] = indice
-        return mapa.reshape(-1)
+        mapa = mapa.reshape(-1)
+        mapa.setflags(write=False)
+        return mapa
+
+    def indices_voxel_a_hoja(self) -> np.ndarray:
+        """Retorna el mapa plano voxel->hoja para la salida final 8^3.
+
+        Se restringe deliberadamente a resolucion 8: este mapa se usa solo
+        para alimentar la capa totalmente conectada de la Tabla 5 y nunca
+        permite densificar las entradas R=32/R=64.
+        """
+
+        return self._mapa_voxel_a_hoja_final
 
 
 @dataclass(frozen=True)
@@ -175,6 +204,39 @@ class MuestraGridOctree:
         atributos = np.ascontiguousarray(atributos)
         atributos.setflags(write=False)
         object.__setattr__(self, "atributos", atributos)
+
+
+def precalcular_planes_net5(
+    geometria: GeometriaGridOctree,
+) -> tuple[GeometriaGridOctree, ...]:
+    """Materializa los planes geometricos requeridos por Net5.
+
+    La operacion no crea atributos densos ni modifica la geometria. Su
+    objetivo es permitir que un ``DataLoader`` con trabajadores construya
+    los planes en paralelo antes de que el lote llegue al hilo que controla
+    la GPU. Los objetos quedan almacenados por ``cached_property`` y se
+    reutilizan en todas las convoluciones de la misma escala.
+    """
+
+    resolucion = int(geometria.resolucion)
+    if resolucion < ARISTA_OCTREE_SUPERFICIAL:
+        raise ValueError("La resolucion debe ser al menos 8")
+    cociente = resolucion // ARISTA_OCTREE_SUPERFICIAL
+    if cociente * ARISTA_OCTREE_SUPERFICIAL != resolucion:
+        raise ValueError("La resolucion debe ser multiplo de 8")
+    n_pool = cociente.bit_length() - 1
+    if 2 ** n_pool != cociente:
+        raise ValueError("La resolucion efectiva debe ser potencia de dos")
+
+    etapas = []
+    actual = geometria
+    for _ in range(n_pool):
+        _ = actual.plan_convolucion
+        etapas.append(actual)
+        actual = actual.plan_pooling.geometria_salida
+    _ = actual.indices_voxel_a_hoja()
+    etapas.append(actual)
+    return tuple(etapas)
 
 
 def _descender_a_raiz_superficial(raiz, coord: tuple[int, int, int],

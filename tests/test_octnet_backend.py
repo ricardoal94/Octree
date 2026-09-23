@@ -14,7 +14,7 @@ import pytest
 torch = pytest.importorskip("torch", reason="El backend nativo requiere PyTorch")
 import torch.nn as nn
 
-from grid_octree import convertir_a_grid_octree
+from grid_octree import convertir_a_grid_octree, precalcular_planes_net5
 from net5_modelo import Net5Octree
 from octnet_backend import LoteGridOctree
 from octree_real import construir_octree
@@ -102,3 +102,43 @@ def test_perfil_backend_registra_planes_sin_alterar_salida():
     assert perfil["n_planes_pooling"] > 0
     assert perfil["n_mapas_finales"] == 1
     assert perfil["plan_convolucion_cpu_s"] >= 0.0
+    assert perfil["n_interacciones_convolucion"] > 0
+    assert perfil["bytes_planes_convolucion"] > 0
+    assert perfil["bytes_planes_pooling"] > 0
+    assert perfil["bytes_mapas_finales"] > 0
+
+
+def test_precalculo_y_ruta_batch_uno_conservan_logits():
+    torch.manual_seed(17)
+    modelo = Net5Octree(resolucion=32, dropout=0.0).eval()
+    lote_referencia = _lote_sintetico(32)
+    lote_precalculado = _lote_sintetico(32)
+    etapas = precalcular_planes_net5(lote_precalculado.geometrias[0])
+
+    plan = etapas[0].plan_convolucion
+    salida, entrada, coeficiente, offsets = (
+        lote_precalculado._plan_convolucion_numpy()
+    )
+    assert salida is plan.salida
+    assert entrada is plan.entrada
+    assert coeficiente is plan.coeficiente
+    assert offsets is plan.offsets_kernel
+
+    with torch.no_grad():
+        esperado = modelo(lote_referencia)
+        obtenido = modelo(lote_precalculado)
+    assert torch.allclose(esperado, obtenido, atol=1e-6)
+
+
+def test_ensamble_multimuestra_conserva_primera_prediccion():
+    torch.manual_seed(23)
+    modelo = Net5Octree(resolucion=32, dropout=0.0).eval()
+    lote_uno = _lote_sintetico(32, batch_size=1)
+    lote_dos = _lote_sintetico(32, batch_size=2)
+
+    with torch.no_grad():
+        logits_uno = modelo(lote_uno)
+        logits_dos = modelo(lote_dos)
+
+    assert logits_dos.shape == (2, 40)
+    assert torch.allclose(logits_uno[0], logits_dos[0], atol=1e-6)

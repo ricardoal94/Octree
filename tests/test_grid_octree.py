@@ -1,10 +1,12 @@
 """Pruebas geometricas del backend OctNet sin dependencia de PyTorch."""
 
+import pickle
+
 import numpy as np
 import pytest
 
 from cuantizacion import cuantizar_indices_octree
-from grid_octree import convertir_a_grid_octree
+from grid_octree import convertir_a_grid_octree, precalcular_planes_net5
 from octree_real import construir_octree
 
 
@@ -150,3 +152,46 @@ def test_pooling_disperso_equivale_a_maxpool_denso():
             np.broadcast_to(esperado[:, None, None, None], bloque.shape),
         )
         np.testing.assert_allclose(salida[indice], esperado)
+
+
+@pytest.mark.parametrize(
+    "resolucion,profundidad,resoluciones_esperadas",
+    [(32, 5, (32, 16, 8)), (64, 6, (64, 32, 16, 8))],
+)
+def test_precalculo_net5_conserva_planes_por_escala(
+    resolucion, profundidad, resoluciones_esperadas,
+):
+    puntos, normales = _nube_controlada()
+    geometria = convertir_a_grid_octree(
+        construir_octree(puntos, normales, profundidad_max=profundidad),
+        resolucion,
+    ).geometria
+
+    etapas = precalcular_planes_net5(geometria)
+
+    assert tuple(etapa.resolucion for etapa in etapas) == resoluciones_esperadas
+    for etapa in etapas[:-1]:
+        assert "plan_convolucion" in etapa.__dict__
+        assert "plan_pooling" in etapa.__dict__
+        assert etapa.plan_convolucion.nbytes > 0
+        assert etapa.plan_pooling.nbytes > 0
+    assert "_mapa_voxel_a_hoja_final" in etapas[-1].__dict__
+    assert etapas[-1].indices_voxel_a_hoja().shape == (8 ** 3,)
+
+
+def test_planes_precalculados_sobreviven_transferencia_entre_procesos():
+    puntos, normales = _nube_controlada()
+    geometria = convertir_a_grid_octree(
+        construir_octree(puntos, normales, profundidad_max=5), 32,
+    ).geometria
+    precalcular_planes_net5(geometria)
+
+    restaurada = pickle.loads(pickle.dumps(geometria))
+
+    assert "plan_convolucion" in restaurada.__dict__
+    assert "plan_pooling" in restaurada.__dict__
+    assert restaurada.plan_convolucion.nbytes == geometria.plan_convolucion.nbytes
+    assert (
+        "plan_convolucion"
+        in restaurada.plan_pooling.geometria_salida.__dict__
+    )

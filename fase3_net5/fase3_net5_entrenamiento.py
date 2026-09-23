@@ -43,7 +43,11 @@ from particion_objetivo2 import (
     listar_muestras_octree,
     seleccionar_subconjunto_balanceado,
 )
-from trazabilidad_git import capturar_estado_git, exigir_estado_git_limpio
+from trazabilidad_git import (
+    capturar_estado_git,
+    exigir_commit_git_publicado,
+    exigir_estado_git_limpio,
+)
 
 RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
 SEED = 42
@@ -124,11 +128,14 @@ def medir_tiempo_inferencia(modelo, loader, device, n_repeticiones: int = 3) -> 
     """
     modelo.eval()
     tiempos = []
+    tiempos_pipeline = []
     total_ultima_repeticion = 0
 
     for _ in range(n_repeticiones):
         tiempo_modelo = 0.0
         total = 0
+        _sincronizar_cuda(device)
+        t0_pipeline = time.perf_counter()
         with torch.no_grad():
             for grids, _ in loader:
                 grids = grids.to(device, non_blocking=True)
@@ -138,17 +145,33 @@ def medir_tiempo_inferencia(modelo, loader, device, n_repeticiones: int = 3) -> 
                 _sincronizar_cuda(device)
                 tiempo_modelo += time.perf_counter() - t0
                 total += grids.size(0)
+        _sincronizar_cuda(device)
+        tiempos_pipeline.append(time.perf_counter() - t0_pipeline)
         tiempos.append(tiempo_modelo)
         total_ultima_repeticion = total
 
     tiempo_total_prom = np.mean(tiempos)
     tiempo_por_muestra_ms = (tiempo_total_prom / total_ultima_repeticion) * 1000
+    tiempo_pipeline_total_prom = np.mean(tiempos_pipeline)
+    tiempo_pipeline_por_muestra_ms = (
+        tiempo_pipeline_total_prom / total_ultima_repeticion
+    ) * 1000
 
     return {
         "tiempo_inferencia_total_s":       round(float(tiempo_total_prom), 4),
         "tiempo_inferencia_promedio_ms":    round(float(tiempo_por_muestra_ms), 4),
+        "tiempo_pipeline_total_s": round(
+            float(tiempo_pipeline_total_prom), 4,
+        ),
+        "tiempo_pipeline_promedio_ms": round(
+            float(tiempo_pipeline_por_muestra_ms), 4,
+        ),
         "n_muestras_test":                 int(total_ultima_repeticion),
         "protocolo_tiempo": "solo forward; excluye carga y transferencia CPU-GPU",
+        "protocolo_tiempo_pipeline": (
+            "extremo a extremo; incluye carga, preparacion geometrica, "
+            "transferencia CPU-GPU y forward"
+        ),
         "repeticiones_inferencia": int(n_repeticiones),
     }
 
@@ -196,13 +219,28 @@ def medir_perfil_rendimiento(modelo, loader, device, n_lotes: int = 3) -> dict:
             total_muestras += grids.size(0)
             lotes_medidos += 1
 
+    claves_tiempo_plan = (
+        "plan_convolucion_cpu_s",
+        "transferencia_plan_convolucion_s",
+        "plan_pooling_cpu_s",
+        "transferencia_plan_pooling_s",
+        "mapa_final_cpu_s",
+        "transferencia_mapa_final_s",
+    )
     tiempos_plan_s = sum(
-        float(valor)
-        for clave, valor in perfil_backend.items()
-        if clave.endswith("_s")
+        float(perfil_backend.get(clave, 0.0))
+        for clave in claves_tiempo_plan
     )
     resto_forward_s = max(0.0, tiempos["forward_total_s"] - tiempos_plan_s)
     divisor = max(total_muestras, 1)
+    bytes_planes = sum(
+        int(valor)
+        for clave, valor in perfil_backend.items()
+        if clave.startswith("bytes_")
+    )
+    interacciones = int(
+        perfil_backend.get("n_interacciones_convolucion", 0)
+    )
     return {
         "lotes_medidos": lotes_medidos,
         "muestras_medidas": total_muestras,
@@ -221,14 +259,28 @@ def medir_perfil_rendimiento(modelo, loader, device, n_lotes: int = 3) -> dict:
         "resto_forward_ms_por_muestra": round(
             resto_forward_s * 1000 / divisor, 4,
         ),
+        "memoria_planes_cpu_mb_por_muestra": round(
+            bytes_planes / 1e6 / divisor, 4,
+        ),
+        "interacciones_convolucion_por_muestra": round(
+            interacciones / divisor, 2,
+        ),
         "detalle_backend": {
-            clave.replace("_s", "_ms"): round(float(valor) * 1000 / divisor, 4)
-            if clave.endswith("_s") else int(valor)
+            (
+                clave.replace("_s", "_ms_por_muestra")
+                if clave.endswith("_s")
+                else clave
+            ): (
+                round(float(valor) * 1000 / divisor, 4)
+                if clave.endswith("_s")
+                else int(valor)
+            )
             for clave, valor in perfil_backend.items()
         },
         "nota": (
-            "Perfil diagnostico sobre un subconjunto de lotes; los tiempos "
-            "de planes incluyen su construccion en CPU y copia al dispositivo."
+            "Perfil diagnostico sobre un subconjunto de lotes. Si el "
+            "precalculo esta activo, su costo aparece en carga_lote; dentro "
+            "del forward se miden el ensamble del lote y las transferencias."
         ),
     }
 
@@ -284,13 +336,31 @@ def main():
         "--exigir-git-limpio", action="store_true",
         help="Abortar si la corrida no parte de un commit sin cambios locales",
     )
+    parser.add_argument(
+        "--exigir-git-publicado", action="store_true",
+        help="Abortar si HEAD no aparece en una referencia remota conocida",
+    )
+    parser.add_argument(
+        "--sin-precalcular-planes",
+        dest="precalcular_planes",
+        action="store_false",
+        help=(
+            "Construir los planes dentro del forward (solo para comparar el "
+            "rendimiento; por defecto se preparan en el DataLoader)"
+        ),
+    )
+    parser.set_defaults(precalcular_planes=True)
     args = parser.parse_args()
     if args.lotes_perfil < 1:
         raise ValueError("--lotes-perfil debe ser al menos 1")
+    if args.num_workers < 0:
+        raise ValueError("--num-workers no puede ser negativo")
 
     estado_git_inicial = capturar_estado_git(RAIZ_PROYECTO)
     if args.exigir_git_limpio:
         exigir_estado_git_limpio(estado_git_inicial)
+    if args.exigir_git_publicado:
+        exigir_commit_git_publicado(estado_git_inicial)
 
     R = args.resolucion
     if args.batch_size is None:
@@ -307,7 +377,8 @@ def main():
         "  Git            : "
         f"{estado_git_inicial.get('git_branch') or 'desconocida'} @ "
         f"{(estado_git_inicial.get('git_commit') or 'desconocido')[:12]} | "
-        f"limpio={estado_git_inicial.get('git_dirty') is False}"
+        f"limpio={estado_git_inicial.get('git_dirty') is False} | "
+        f"publicado={estado_git_inicial.get('git_commit_publicado') is True}"
     )
     nombre_backend = (
         "NET5-OCTREE NATIVO"
@@ -357,6 +428,7 @@ def main():
     if args.backend == "octree_native":
         loader_train, loader_val, loader_test = crear_dataloaders_octree(
             **argumentos_loader,
+            precalcular_planes=args.precalcular_planes,
         )
         modelo, device = crear_modelo(resolucion=R, device=device)
     else:
@@ -390,7 +462,10 @@ def main():
     print(f"\n  Epocas max   : {args.epochs}")
     print(f"  Early stop   : patience={args.patience}")
     print(f"  Batch size   : {args.batch_size}")
+    print(f"  Data workers : {args.num_workers}")
     print(f"  LR inicial   : {args.lr}")
+    if args.backend == "octree_native":
+        print(f"  Precalc. plan: {args.precalcular_planes}")
     print(f"  Train batches: {len(loader_train)}")
     print(f"  Val   batches: {len(loader_val)}\n")
 
@@ -508,6 +583,7 @@ def main():
     print(f"  Mejor Val Acc   : {mejor_val_acc*100:.2f}%  (ep {ckpt['epoca']})")
     print(f"  Test  Acc final : {test_acc*100:.2f}%")
     print(f"  Inf/muestra     : {metricas_inf['tiempo_inferencia_promedio_ms']:.3f} ms")
+    print(f"  Pipeline/muestra: {metricas_inf['tiempo_pipeline_promedio_ms']:.3f} ms")
     print(f"  VRAM pico       : {vram_pico_mb:.1f} MB")
     print(f"  Tamano modelo   : {tamano_mb:.2f} MB")
     print(
@@ -531,7 +607,11 @@ def main():
     es_nativo = args.backend == "octree_native"
     test_oficial_completo = len(loader_test.dataset) == 2468
     resultado_oficial = bool(
-        es_nativo and not limites_activos and test_oficial_completo
+        es_nativo
+        and not limites_activos
+        and test_oficial_completo
+        and estado_git_inicial.get("git_dirty") is False
+        and estado_git_inicial.get("git_commit_publicado") is True
     )
     if resultado_oficial:
         motivo_no_valido = None
@@ -545,6 +625,14 @@ def main():
             "Corrida nativa limitada; sirve como smoke test, no como "
             "evaluacion completa."
         )
+    elif estado_git_inicial.get("git_dirty") is not False:
+        motivo_no_valido = (
+            "La corrida no parte de un arbol de trabajo Git limpio."
+        )
+    elif estado_git_inicial.get("git_commit_publicado") is not True:
+        motivo_no_valido = (
+            "El commit usado no aparece en una referencia remota conocida."
+        )
     else:
         motivo_no_valido = (
             "El test no contiene las 2.468 muestras oficiales completas."
@@ -553,8 +641,8 @@ def main():
         "schema_name": (
             "net5-octree-native" if es_nativo else "dense-table5-diagnostic"
         ),
-        "schema_version": "1.1.0",
-        "backend_version": "1.0.1",
+        "schema_version": "1.2.0",
+        "backend_version": "1.1.0",
         "alcance": (
             "PARCIAL_SMOKE"
             if limites_activos
@@ -587,11 +675,21 @@ def main():
             "epochs_max": args.epochs,
             "patience": args.patience,
             "batch_size": args.batch_size,
+            "num_workers": args.num_workers,
+            "prefetch_factor": (
+                1
+                if args.backend == "octree_native" and args.num_workers > 0
+                else None
+            ),
             "lr": args.lr,
             "weight_decay": 1e-4,
             "scheduler": "StepLR(step_size=20, gamma=0.7)",
             "lotes_perfil": args.lotes_perfil,
             "exigir_git_limpio": args.exigir_git_limpio,
+            "exigir_git_publicado": args.exigir_git_publicado,
+            "precalcular_planes": (
+                args.precalcular_planes if es_nativo else None
+            ),
         },
         "mejor_val_acc":  round(float(mejor_val_acc), 6),
         "mejor_epoca":    int(ckpt["epoca"]),
