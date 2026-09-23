@@ -172,6 +172,33 @@ Antes de programar las corridas completas se debe comparar el pipeline con
 tiempo aun en paralelo, el siguiente paso técnico será trasladar esa fase a
 una extensión C++/CUDA, sin cambiar la semántica ya validada.
 
+El barrido completo de smoke tests se ejecuta con un solo comando desde la
+raíz del repositorio:
+
+```bash
+python fase3_net5/comparar_workers_octnet.py
+```
+
+El script ejecuta las seis combinaciones R32/R64 por 0/4/8 trabajadores con
+etiquetas independientes, exige un commit limpio y publicado, y comprueba la
+configuración, la trazabilidad y las métricas del backend. Los checkpoints,
+logs y resultados se escriben en la carpeta hermana `<repositorio>_smoke_workers`
+para que la primera corrida no ensucie el repositorio e invalide las demás.
+Al finalizar genera `comparacion_workers_octnet.json` y
+`comparacion_workers_octnet.csv`; el JSON registra también el número de
+trabajadores con menor tiempo integral para cada resolución.
+
+Si una ejecución se interrumpe, puede continuarse sin repetir las combinaciones
+que ya sean válidas:
+
+```bash
+python fase3_net5/comparar_workers_octnet.py --continuar
+```
+
+Para auditar resultados existentes sin entrenar de nuevo se usa
+`--solo-validar`; para revisar los seis comandos sin ejecutarlos se usa
+`--mostrar-comandos`.
+
 ## Pendiente para cerrar el Objetivo 3
 
 1. Ejecutar las pruebas PyTorch y el smoke test nativo en la máquina de
