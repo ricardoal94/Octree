@@ -114,14 +114,21 @@ class LoteGridOctree:
 
         self._perfil = {
             "plan_convolucion_cpu_s": 0.0,
+            "plan_geometria_cpu_s": 0.0,
+            "ensamble_plan_lote_cpu_s": 0.0,
             "transferencia_plan_convolucion_s": 0.0,
             "plan_pooling_cpu_s": 0.0,
             "transferencia_plan_pooling_s": 0.0,
             "mapa_final_cpu_s": 0.0,
             "transferencia_mapa_final_s": 0.0,
             "n_planes_convolucion": 0,
+            "n_interacciones_convolucion": 0,
+            "bytes_planes_convolucion": 0,
             "n_planes_pooling": 0,
+            "n_asignaciones_pooling": 0,
+            "bytes_planes_pooling": 0,
             "n_mapas_finales": 0,
+            "bytes_mapas_finales": 0,
         }
         return self
 
@@ -137,49 +144,88 @@ class LoteGridOctree:
     def _plan_convolucion_numpy(self) -> tuple[np.ndarray, ...]:
         clave = "conv_numpy"
         if clave not in self._cache:
-            t0 = time.perf_counter() if self._perfil is not None else None
-            salidas_por_kernel = [[] for _ in range(27)]
-            entradas_por_kernel = [[] for _ in range(27)]
-            coeficientes_por_kernel = [[] for _ in range(27)]
-            for offset, geometria in zip(self.offsets[:-1], self.geometrias):
-                plan = geometria.plan_convolucion
-                for kernel in range(27):
-                    inicio = int(plan.offsets_kernel[kernel])
-                    fin = int(plan.offsets_kernel[kernel + 1])
-                    salidas_por_kernel[kernel].append(
-                        plan.salida[inicio:fin] + int(offset)
-                    )
-                    entradas_por_kernel[kernel].append(
-                        plan.entrada[inicio:fin] + int(offset)
-                    )
-                    coeficientes_por_kernel[kernel].append(
-                        plan.coeficiente[inicio:fin]
-                    )
-            salidas = []
-            entradas = []
-            coeficientes = []
-            offsets_kernel = [0]
-            for kernel in range(27):
-                salida_kernel = np.concatenate(salidas_por_kernel[kernel])
-                entrada_kernel = np.concatenate(entradas_por_kernel[kernel])
-                coeficiente_kernel = np.concatenate(
-                    coeficientes_por_kernel[kernel]
-                )
-                salidas.append(salida_kernel)
-                entradas.append(entrada_kernel)
-                coeficientes.append(coeficiente_kernel)
-                offsets_kernel.append(offsets_kernel[-1] + len(salida_kernel))
-            self._cache[clave] = (
-                np.concatenate(salidas),
-                np.concatenate(entradas),
-                np.concatenate(coeficientes),
-                np.asarray(offsets_kernel, dtype=np.int64),
+            t0_total = time.perf_counter() if self._perfil is not None else None
+            t0_geometria = (
+                time.perf_counter() if self._perfil is not None else None
             )
-            if t0 is not None:
+            planes = tuple(
+                geometria.plan_convolucion for geometria in self.geometrias
+            )
+            if t0_geometria is not None:
                 self._registrar_perfil(
-                    "plan_convolucion_cpu_s", time.perf_counter() - t0,
+                    "plan_geometria_cpu_s", time.perf_counter() - t0_geometria,
+                )
+
+            t0_ensamble = (
+                time.perf_counter() if self._perfil is not None else None
+            )
+            if self.batch_size == 1:
+                plan = planes[0]
+                self._cache[clave] = (
+                    plan.salida,
+                    plan.entrada,
+                    plan.coeficiente,
+                    plan.offsets_kernel,
+                )
+            else:
+                salidas_por_kernel = [[] for _ in range(27)]
+                entradas_por_kernel = [[] for _ in range(27)]
+                coeficientes_por_kernel = [[] for _ in range(27)]
+                for offset, plan in zip(self.offsets[:-1], planes):
+                    for kernel in range(27):
+                        inicio = int(plan.offsets_kernel[kernel])
+                        fin = int(plan.offsets_kernel[kernel + 1])
+                        salidas_por_kernel[kernel].append(
+                            plan.salida[inicio:fin] + int(offset)
+                        )
+                        entradas_por_kernel[kernel].append(
+                            plan.entrada[inicio:fin] + int(offset)
+                        )
+                        coeficientes_por_kernel[kernel].append(
+                            plan.coeficiente[inicio:fin]
+                        )
+                salidas = []
+                entradas = []
+                coeficientes = []
+                offsets_kernel = [0]
+                for kernel in range(27):
+                    salida_kernel = np.concatenate(salidas_por_kernel[kernel])
+                    entrada_kernel = np.concatenate(entradas_por_kernel[kernel])
+                    coeficiente_kernel = np.concatenate(
+                        coeficientes_por_kernel[kernel]
+                    )
+                    salidas.append(salida_kernel)
+                    entradas.append(entrada_kernel)
+                    coeficientes.append(coeficiente_kernel)
+                    offsets_kernel.append(
+                        offsets_kernel[-1] + len(salida_kernel)
+                    )
+                self._cache[clave] = (
+                    np.concatenate(salidas),
+                    np.concatenate(entradas),
+                    np.concatenate(coeficientes),
+                    np.asarray(offsets_kernel, dtype=np.int64),
+                )
+            if t0_ensamble is not None:
+                self._registrar_perfil(
+                    "ensamble_plan_lote_cpu_s",
+                    time.perf_counter() - t0_ensamble,
+                )
+            if t0_total is not None:
+                self._registrar_perfil(
+                    "plan_convolucion_cpu_s", time.perf_counter() - t0_total,
                 )
                 self._perfil["n_planes_convolucion"] += 1
+                salida, entrada, coeficiente, offsets = self._cache[clave]
+                self._perfil["n_interacciones_convolucion"] += len(salida)
+                bytes_geometrias = sum(plan.nbytes for plan in planes)
+                bytes_ensamble = 0 if self.batch_size == 1 else sum(
+                    arreglo.nbytes
+                    for arreglo in (salida, entrada, coeficiente, offsets)
+                )
+                self._perfil["bytes_planes_convolucion"] += (
+                    bytes_geometrias + bytes_ensamble
+                )
         return self._cache[clave]
 
     def plan_convolucion_torch(self) -> tuple:
@@ -211,28 +257,35 @@ class LoteGridOctree:
 
     def max_pool2(self) -> "LoteGridOctree":
         t0 = time.perf_counter() if self._perfil is not None else None
+        planes = tuple(geometria.plan_pooling for geometria in self.geometrias)
         geometrias_salida = tuple(
-            geometria.plan_pooling.geometria_salida
-            for geometria in self.geometrias
+            plan.geometria_salida for plan in planes
         )
         cantidades_salida = [g.n_hojas for g in geometrias_salida]
         offsets_salida = np.concatenate([
             np.asarray([0], dtype=np.int64),
             np.cumsum(cantidades_salida, dtype=np.int64),
         ])
-        mapeos = []
-        for offset_salida, geometria in zip(
-            offsets_salida[:-1], self.geometrias,
-        ):
-            mapeos.append(
-                geometria.plan_pooling.entrada_a_salida + int(offset_salida)
-            )
-        mapa_np = np.concatenate(mapeos)
+        if self.batch_size == 1:
+            mapa_np = planes[0].entrada_a_salida
+        else:
+            mapeos = []
+            for offset_salida, plan in zip(offsets_salida[:-1], planes):
+                mapeos.append(
+                    plan.entrada_a_salida + int(offset_salida)
+                )
+            mapa_np = np.concatenate(mapeos)
         if t0 is not None:
             self._registrar_perfil(
                 "plan_pooling_cpu_s", time.perf_counter() - t0,
             )
             self._perfil["n_planes_pooling"] += 1
+            self._perfil["n_asignaciones_pooling"] += len(mapa_np)
+            bytes_geometrias = sum(plan.nbytes for plan in planes)
+            bytes_ensamble = 0 if self.batch_size == 1 else mapa_np.nbytes
+            self._perfil["bytes_planes_pooling"] += (
+                bytes_geometrias + bytes_ensamble
+            )
         t0 = time.perf_counter() if self._perfil is not None else None
         mapa = torch.as_tensor(
             mapa_np, dtype=torch.long, device=self.atributos.device,
@@ -266,17 +319,28 @@ class LoteGridOctree:
         if self.resolucion != 8:
             raise ValueError("La capa FC requiere una salida de resolucion 8^3")
         t0 = time.perf_counter() if self._perfil is not None else None
-        mapas = []
-        for offset, geometria in zip(self.offsets[:-1], self.geometrias):
-            mapas.append(geometria.indices_voxel_a_hoja() + int(offset))
-        mapa_np = np.concatenate(mapas)
+        if self.batch_size == 1:
+            mapa_np = self.geometrias[0].indices_voxel_a_hoja()
+        else:
+            mapas = []
+            for offset, geometria in zip(self.offsets[:-1], self.geometrias):
+                mapas.append(geometria.indices_voxel_a_hoja() + int(offset))
+            mapa_np = np.concatenate(mapas)
         if t0 is not None:
             self._registrar_perfil(
                 "mapa_final_cpu_s", time.perf_counter() - t0,
             )
             self._perfil["n_mapas_finales"] += 1
+            bytes_geometrias = sum(
+                geometria.indices_voxel_a_hoja().nbytes
+                for geometria in self.geometrias
+            )
+            bytes_ensamble = 0 if self.batch_size == 1 else mapa_np.nbytes
+            self._perfil["bytes_mapas_finales"] += (
+                bytes_geometrias + bytes_ensamble
+            )
         t0 = time.perf_counter() if self._perfil is not None else None
-        indices = torch.as_tensor(
+        indices = torch.tensor(
             mapa_np,
             dtype=torch.long,
             device=self.atributos.device,
