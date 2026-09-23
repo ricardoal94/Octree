@@ -1,0 +1,193 @@
+import csv
+import json
+
+import pytest
+from comparar_workers_octnet import (
+    ErrorValidacionSmoke,
+    construir_comando,
+    escribir_consolidado,
+    ruta_resumen,
+    validar_conjunto,
+    validar_resumen,
+)
+
+
+def _resumen_valido(resolucion=32, workers=4, commit="a" * 40):
+    return {
+        "schema_name": "net5-octree-native",
+        "schema_version": "1.2.0",
+        "backend_version": "1.1.0",
+        "alcance": "PARCIAL_SMOKE",
+        "valido_como_resultado_objetivo3": False,
+        "backend": "octree_native",
+        "git_commit": commit,
+        "git_branch": "feature/octnet-native-backend",
+        "git_dirty": False,
+        "git_commit_publicado": True,
+        "resolucion": resolucion,
+        "parametros_entrenables": 8_547_456,
+        "seed": 42,
+        "particion": {
+            "manifest": "logs/particion_objetivo2_modelos.json",
+            "metodo": "sklearn.train_test_split(stratify=y, shuffle=True)",
+            "n_train_usado": 40,
+            "n_val_usado": 40,
+            "n_test_usado": 40,
+        },
+        "configuracion": {
+            "epochs_max": 1,
+            "batch_size": 1,
+            "num_workers": workers,
+            "prefetch_factor": 1 if workers > 0 else None,
+            "lotes_perfil": 3,
+            "exigir_git_limpio": True,
+            "exigir_git_publicado": True,
+            "precalcular_planes": True,
+        },
+        "test_acc": 0.025,
+        "tiempo_total_min": 1.0,
+        "tiempo_inferencia_promedio_ms": 75.0,
+        "tiempo_pipeline_promedio_ms": 900.0,
+        "vram_pico_mb": 1800.0,
+        "tamano_modelo_mb": 102.6,
+        "perfil_rendimiento": {
+            "lotes_medidos": 3,
+            "muestras_medidas": 3,
+            "carga_lote_ms_por_muestra": 800.0,
+            "transferencia_atributos_ms_por_muestra": 0.2,
+            "forward_total_ms_por_muestra": 74.0,
+            "planes_backend_ms_por_muestra": 8.0,
+            "resto_forward_ms_por_muestra": 66.0,
+            "memoria_planes_cpu_mb_por_muestra": 48.0,
+            "interacciones_convolucion_por_muestra": 123_456.0,
+            "detalle_backend": {
+                "n_planes_convolucion": 9,
+                "n_interacciones_convolucion": 370_368,
+                "bytes_planes_convolucion": 42_000_000,
+                "n_planes_pooling": 9,
+                "n_asignaciones_pooling": 12_000,
+                "bytes_planes_pooling": 2_000_000,
+                "n_mapas_finales": 3,
+                "bytes_mapas_finales": 100_000,
+            },
+        },
+    }
+
+
+def _validar(resumen, resolucion=32, workers=4):
+    validar_resumen(
+        resumen,
+        resolucion=resolucion,
+        workers=workers,
+        limite_train=40,
+        limite_val=40,
+        limite_test=40,
+        epochs=1,
+        batch_size=1,
+        lotes_perfil=3,
+    )
+
+
+def test_comando_usa_etiqueta_directorios_y_trazabilidad(tmp_path):
+    comando = construir_comando(
+        python="python",
+        resolucion=64,
+        workers=8,
+        limite_train=40,
+        limite_val=40,
+        limite_test=40,
+        epochs=1,
+        batch_size=1,
+        lotes_perfil=3,
+        data_root=tmp_path / "data",
+        particion_manifest=tmp_path / "particion.json",
+        checkpoints_dir=tmp_path / "checkpoints",
+        logs_dir=tmp_path / "logs",
+        resultados_dir=tmp_path / "resultados",
+    )
+
+    assert comando[0] == "python"
+    assert comando[comando.index("--resolucion") + 1] == "64"
+    assert comando[comando.index("--num-workers") + 1] == "8"
+    assert comando[comando.index("--tag") + 1] == "_smoke_w8"
+    assert "--exigir-git-limpio" in comando
+    assert "--exigir-git-publicado" in comando
+    assert ruta_resumen(tmp_path, 64, 8).name.endswith("R64_smoke_w8.json")
+
+
+def test_validador_acepta_un_resumen_completo():
+    _validar(_resumen_valido())
+
+
+@pytest.mark.parametrize(
+    ("mutacion", "mensaje"),
+    [
+        (lambda r: r["configuracion"].update(num_workers=0), "num_workers"),
+        (
+            lambda r: r["configuracion"].update(exigir_git_publicado=False),
+            "exigir_git_publicado",
+        ),
+        (
+            lambda r: r["perfil_rendimiento"].update(
+                memoria_planes_cpu_mb_por_muestra=0.0
+            ),
+            "memoria_planes_cpu",
+        ),
+        (
+            lambda r: r["perfil_rendimiento"]["detalle_backend"].update(
+                n_interacciones_convolucion=0
+            ),
+            "n_interacciones_convolucion",
+        ),
+    ],
+)
+def test_validador_rechaza_configuracion_o_perfil_incompleto(mutacion, mensaje):
+    resumen = _resumen_valido()
+    mutacion(resumen)
+
+    with pytest.raises(ErrorValidacionSmoke, match=mensaje):
+        _validar(resumen)
+
+
+def test_conjunto_exige_mismo_commit_y_todas_las_combinaciones():
+    ejecuciones = [
+        _resumen_valido(resolucion, workers)
+        for resolucion in (32, 64)
+        for workers in (0, 4, 8)
+    ]
+    validar_conjunto(ejecuciones, resoluciones=[32, 64], workers=[0, 4, 8])
+
+    ejecuciones[-1]["git_commit"] = "b" * 40
+    with pytest.raises(ErrorValidacionSmoke, match="commit"):
+        validar_conjunto(
+            ejecuciones, resoluciones=[32, 64], workers=[0, 4, 8],
+        )
+
+
+def test_consolidado_es_ordenado_y_auditable(tmp_path):
+    ejecuciones = [
+        _resumen_valido(64, 4),
+        _resumen_valido(32, 8),
+        _resumen_valido(32, 0),
+    ]
+    ruta_json, ruta_csv = escribir_consolidado(
+        ejecuciones,
+        salida_dir=tmp_path,
+        resoluciones=[32, 64],
+        workers=[0, 4, 8],
+    )
+
+    consolidado = json.loads(ruta_json.read_text(encoding="utf-8"))
+    assert consolidado["schema_name"] == "net5-octree-worker-benchmark"
+    assert consolidado["estado"] == "VALIDADO"
+    assert consolidado["seleccion_workers"] == {"32": 0, "64": 4}
+    assert [
+        (fila["resolucion"], fila["num_workers"])
+        for fila in consolidado["resultados"]
+    ] == [(32, 0), (32, 8), (64, 4)]
+
+    with ruta_csv.open(encoding="utf-8", newline="") as archivo:
+        filas = list(csv.DictReader(archivo))
+    assert len(filas) == 3
+    assert filas[0]["resolucion"] == "32"
+    assert filas[0]["num_workers"] == "0"
