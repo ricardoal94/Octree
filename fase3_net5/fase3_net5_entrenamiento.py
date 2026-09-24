@@ -35,6 +35,7 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent.parent / "fase1_modelnet40"))
 sys.path.insert(0, str(Path(__file__).parent))
 
+from entorno_ejecucion import capturar_entorno_ejecucion
 from fase1_setup import set_global_seed
 from net5_dataset import CLASES, crear_dataloaders_densos_referencia
 from net5_dataset_octree import crear_dataloaders_octree
@@ -397,6 +398,7 @@ def main():
 
     set_global_seed(SEED)
     device = get_device()
+    entorno_ejecucion = capturar_entorno_ejecucion(device)
 
     for d in (args.checkpoints_dir, args.logs_dir, args.resultados_dir):
         d.mkdir(parents=True, exist_ok=True)
@@ -648,7 +650,7 @@ def main():
         "schema_name": (
             "net5-octree-native" if es_nativo else "dense-table5-diagnostic"
         ),
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "backend_version": "1.1.1",
         "alcance": (
             "PARCIAL_SMOKE"
@@ -662,6 +664,7 @@ def main():
         "valido_como_resultado_objetivo3": resultado_oficial,
         "motivo_no_valido": motivo_no_valido,
         "backend": args.backend,
+        "entorno_ejecucion": entorno_ejecucion,
         **estado_git_inicial,
         "resolucion": R,
         "profundidad_octree": 5 if R == 32 else 6,
