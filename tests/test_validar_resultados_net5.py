@@ -246,6 +246,38 @@ def test_archivos_y_consolidado_generan_evidencia(tmp_path):
     assert [fila["resolucion"] for fila in filas] == ["32", "64"]
 
 
+def test_consolidado_invalido_tolera_resumen_malformado(tmp_path):
+    validaciones = [
+        {
+            "resolucion": 32,
+            "archivo": "resumen_net5_octree_R32.json",
+            "valido": False,
+            "errores": ["entorno_ejecucion no es objeto"],
+        },
+        {
+            "resolucion": 64,
+            "archivo": "resumen_net5_octree_R64.json",
+            "valido": False,
+            "errores": ["archivo inexistente"],
+        },
+    ]
+
+    ruta_json, ruta_csv, valido = escribir_consolidado(
+        {32: {"resolucion": 32}},
+        validaciones,
+        ["deben existir exactamente los resultados R32 y R64"],
+        salida_dir=tmp_path,
+        barrido=None,
+    )
+
+    assert valido is False
+    informe = json.loads(ruta_json.read_text(encoding="utf-8"))
+    assert informe["estado"] == "INVALIDO"
+    assert informe["resultados"] == []
+    with ruta_csv.open(encoding="utf-8", newline="") as archivo:
+        assert list(csv.DictReader(archivo)) == []
+
+
 def test_json_estricto_rechaza_nan(tmp_path):
     ruta = tmp_path / "resultado.json"
     ruta.write_text('{"test_acc": NaN}', encoding="utf-8")
