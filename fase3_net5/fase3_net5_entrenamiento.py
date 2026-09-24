@@ -19,16 +19,17 @@ Uso:
       --limite_val 40 --limite_test 80
 """
 
-import sys
+import argparse
 import csv
 import json
+import os
+import sys
 import time
-import argparse
+from pathlib import Path
+
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from pathlib import Path
+from torch import nn, optim
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "fase1_modelnet40"))
@@ -51,6 +52,12 @@ from trazabilidad_git import (
 
 RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
 SEED = 42
+VARIABLES_HILOS_CPU = (
+    "OPENBLAS_NUM_THREADS",
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+)
 
 
 def _sincronizar_cuda(device: torch.device) -> None:
@@ -545,7 +552,7 @@ def main():
 
     # Matriz de confusion y reporte por clase
     print("[Test] Generando matriz de confusion...")
-    from sklearn.metrics import confusion_matrix, classification_report
+    from sklearn.metrics import classification_report, confusion_matrix
     todas_pred, todas_real = [], []
     modelo.eval()
     with torch.no_grad():
@@ -642,7 +649,7 @@ def main():
             "net5-octree-native" if es_nativo else "dense-table5-diagnostic"
         ),
         "schema_version": "1.2.0",
-        "backend_version": "1.1.0",
+        "backend_version": "1.1.1",
         "alcance": (
             "PARCIAL_SMOKE"
             if limites_activos
@@ -679,6 +686,19 @@ def main():
             "prefetch_factor": (
                 1
                 if args.backend == "octree_native" and args.num_workers > 0
+                else None
+            ),
+            "hilos_bibliotecas_cpu": {
+                variable: os.environ.get(variable)
+                for variable in VARIABLES_HILOS_CPU
+            },
+            "persistent_workers": (
+                {
+                    "train": False,
+                    "val": False,
+                    "test": args.num_workers > 0,
+                }
+                if es_nativo
                 else None
             ),
             "lr": args.lr,

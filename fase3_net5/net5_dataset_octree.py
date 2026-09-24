@@ -7,9 +7,9 @@ octrees superficiales de profundidad 3. En ningun punto se crea una matriz
 
 from __future__ import annotations
 
+import sys
 from functools import partial
 from pathlib import Path
-import sys
 
 import numpy as np
 import torch
@@ -17,18 +17,17 @@ from torch.utils.data import DataLoader, Dataset
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "fase2_octree"))
 
-from octree_real import reconstruir_octree_desde_npz  # noqa: E402
-from grid_octree import (  # noqa: E402
+from grid_octree import (
     MuestraGridOctree,
     convertir_a_grid_octree,
     precalcular_planes_net5,
 )
-from octnet_backend import LoteGridOctree  # noqa: E402
-from particion_objetivo2 import (  # noqa: E402
+from octnet_backend import LoteGridOctree
+from octree_real import reconstruir_octree_desde_npz
+from particion_objetivo2 import (
     CLASES_MODELNET40,
     listar_muestras_octree,
 )
-
 
 CLASES = CLASES_MODELNET40
 
@@ -93,6 +92,7 @@ def collate_grid_octree(
 
 def _worker_init_fn(worker_id: int, seed: int = 42) -> None:
     np.random.seed(seed + worker_id)
+    torch.set_num_threads(1)
 
 
 def crear_dataloaders_octree(
@@ -128,7 +128,6 @@ def crear_dataloaders_octree(
         "batch_size": batch_size,
         "num_workers": num_workers,
         "pin_memory": torch.cuda.is_available(),
-        "persistent_workers": num_workers > 0,
         "collate_fn": collate_grid_octree,
     }
     if num_workers > 0:
@@ -141,8 +140,19 @@ def crear_dataloaders_octree(
         shuffle=True,
         worker_init_fn=init_fn,
         generator=generador,
+        persistent_workers=False,
         **comunes,
     )
-    loader_val = DataLoader(ds_val, shuffle=False, **comunes)
-    loader_test = DataLoader(ds_test, shuffle=False, **comunes)
+    loader_val = DataLoader(
+        ds_val,
+        shuffle=False,
+        persistent_workers=False,
+        **comunes,
+    )
+    loader_test = DataLoader(
+        ds_test,
+        shuffle=False,
+        persistent_workers=num_workers > 0,
+        **comunes,
+    )
     return loader_train, loader_val, loader_test

@@ -26,11 +26,28 @@ PREFIJO_MODELO = "net5_octree"
 SCHEMA_RESUMEN = "net5-octree-native"
 SCHEMA_RESUMEN_VERSION = "1.2.0"
 SCHEMA_BARRIDO = "net5-octree-worker-benchmark"
-SCHEMA_BARRIDO_VERSION = "1.0.0"
+SCHEMA_BARRIDO_VERSION = "1.1.0"
+VARIABLES_HILOS_CPU = (
+    "OPENBLAS_NUM_THREADS",
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+)
 
 
 class ErrorValidacionSmoke(ValueError):
     """Indica que una corrida no cumple el contrato del barrido."""
+
+
+def construir_entorno_workers(
+    entorno_base: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Limita los hilos internos que heredara cada proceso del DataLoader."""
+
+    entorno = dict(os.environ if entorno_base is None else entorno_base)
+    for variable in VARIABLES_HILOS_CPU:
+        entorno[variable] = "1"
+    return entorno
 
 
 def _valor_numerico_positivo(valor) -> bool:
@@ -187,6 +204,22 @@ def validar_resumen(
     _agregar_error(
         errores, configuracion.get("prefetch_factor") == prefetch_esperado,
         f"configuracion.prefetch_factor debe ser {prefetch_esperado!r}",
+    )
+    hilos_esperados = {variable: "1" for variable in VARIABLES_HILOS_CPU}
+    _agregar_error(
+        errores,
+        configuracion.get("hilos_bibliotecas_cpu") == hilos_esperados,
+        "configuracion.hilos_bibliotecas_cpu debe limitar cada biblioteca a 1",
+    )
+    persistencia_esperada = {
+        "train": False,
+        "val": False,
+        "test": workers > 0,
+    }
+    _agregar_error(
+        errores,
+        configuracion.get("persistent_workers") == persistencia_esperada,
+        "configuracion.persistent_workers no coincide con la politica segura",
     )
 
     for clave, esperado in (
@@ -570,6 +603,7 @@ def main() -> int:
         directorio.mkdir(parents=True, exist_ok=True)
 
     ejecuciones = []
+    entorno_workers = construir_entorno_workers()
     for indice, (resolucion, workers, comando) in enumerate(comandos, start=1):
         ruta = ruta_resumen(resultados_dir, resolucion, workers)
         reutilizado = False
@@ -598,7 +632,12 @@ def main() -> int:
                 f"num_workers={workers}"
             )
             print(_mostrar_comando(comando))
-            subprocess.run(comando, cwd=RAIZ_PROYECTO, check=True)
+            subprocess.run(
+                comando,
+                cwd=RAIZ_PROYECTO,
+                check=True,
+                env=entorno_workers,
+            )
 
         resumen = cargar_resumen(ruta)
         validar_resumen(
