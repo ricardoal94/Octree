@@ -41,7 +41,7 @@ def test_entorno_workers_limita_hilos_y_conserva_otras_variables():
 def _resumen_valido(resolucion=32, workers=4, commit="a" * 40):
     return {
         "schema_name": "net5-octree-native",
-        "schema_version": "1.3.0",
+        "schema_version": "1.4.0",
         "backend_version": "1.1.1",
         "alcance": "PARCIAL_SMOKE",
         "valido_como_resultado_objetivo3": False,
@@ -109,6 +109,18 @@ def _resumen_valido(resolucion=32, workers=4, commit="a" * 40):
             "exigir_git_limpio": True,
             "exigir_git_publicado": True,
             "precalcular_planes": True,
+        },
+        "entrenamiento": {
+            "reanudar_solicitado": False,
+            "reanudado_desde_epoca": None,
+            "epocas_ejecutadas_esta_invocacion": 1,
+            "epocas_completadas": 1,
+            "detenido_por_early_stopping": False,
+            "checkpoint_mejor": "net5_octree_mejor_R32_smoke_w4.pth",
+            "checkpoint_ultimo": "net5_octree_ultimo_R32_smoke_w4.pth",
+            "historial_csv": "net5_octree_historial_R32_smoke_w4.csv",
+            "historial_json": "net5_octree_historial_R32_smoke_w4.json",
+            "particion_sha256": "c" * 64,
         },
         "test_acc": 0.025,
         "tiempo_total_min": 1.0,

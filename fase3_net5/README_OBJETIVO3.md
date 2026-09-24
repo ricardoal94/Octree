@@ -210,15 +210,80 @@ Para auditar resultados existentes sin entrenar de nuevo se usa
 `--solo-validar`; para revisar los seis comandos sin ejecutarlos se usa
 `--mostrar-comandos`.
 
+## Entrenamientos oficiales R32/R64
+
+Los entrenamientos completos se orquestan con
+`ejecutar_objetivo3_net5.py`. El ejecutor exige previamente un barrido de
+workers que cumpla el contrato vigente, pertenezca al mismo commit y haya sido
+generado en el mismo entorno de hardware y software. El número de workers no
+se escribe manualmente: se toma de la selección por menor tiempo integral del
+barrido validado.
+
+Primero debe regenerarse la evidencia corta después de publicar cualquier
+cambio del código:
+
+```powershell
+python fase3_net5/comparar_workers_octnet.py `
+  --artefactos-dir ..\Tesis_smoke_workers_obj3_final
+```
+
+Después se ejecutan las dos corridas oficiales, sin límites de muestras ni
+etiquetas de smoke:
+
+```powershell
+python fase3_net5/ejecutar_objetivo3_net5.py `
+  --barrido-dir ..\Tesis_smoke_workers_obj3_final `
+  --artefactos-dir ..\Tesis_objetivo3_oficial
+```
+
+Los checkpoints, historiales y resultados quedan fuera del repositorio. El
+protocolo predeterminado usa 200 épocas máximas, `patience=20`, `batch_size=1`,
+Adam con `lr=0.001`, `StepLR(step_size=20, gamma=0.7)` y la partición con
+semilla 42 usada por el enfoque HCE.
+
+Al terminar cada época se guarda de forma atómica un checkpoint de
+continuación con el modelo actual, optimizador, scheduler, early stopping,
+historial, tiempo acumulado y estados aleatorios. Si Windows se reinicia o la
+corrida se interrumpe, el mismo flujo se retoma con:
+
+```powershell
+python fase3_net5/ejecutar_objetivo3_net5.py `
+  --barrido-dir ..\Tesis_smoke_workers_obj3_final `
+  --artefactos-dir ..\Tesis_objetivo3_oficial `
+  --continuar
+```
+
+La reanudación se rechaza si cambian el commit, el entorno, el manifiesto, las
+cantidades de muestras o los hiperparámetros. Una resolución ya finalizada y
+válida se omite; una incompleta continúa desde su última época cerrada.
+
+El ejecutor valida automáticamente que ambos resúmenes:
+
+- tengan alcance `COMPLETO` y sean válidos para el Objetivo 3;
+- usen 8.858 muestras de entrenamiento, 985 de validación y las 2.468 de test;
+- compartan commit, entorno, semilla, manifiesto y contrato experimental;
+- contengan matrices de confusión 40x40 consistentes con el reporte por clase;
+- registren exactitud, pérdida, tiempos, VRAM, tamaño del modelo y perfil del
+  pipeline con valores finitos;
+- utilicen los workers seleccionados por el barrido.
+
+La evidencia consolidada queda en:
+
+```text
+..\Tesis_objetivo3_oficial\resultados\validacion_objetivo3_net5.json
+..\Tesis_objetivo3_oficial\resultados\resumen_objetivo3_net5.csv
+```
+
+Para auditar artefactos ya existentes sin ejecutar entrenamiento se agrega
+`--solo-validar`; `--mostrar-comandos` permite revisar las dos invocaciones
+previstas.
+
 ## Pendiente para cerrar el Objetivo 3
 
-1. Ejecutar las pruebas PyTorch y el smoke test nativo en la máquina de
-   entrenamiento.
-2. Medir tiempo de `forward`, tiempo integral, memoria de planes y VRAM con
-   distintos números de trabajadores; si es necesario, optimizar el plan
-   disperso antes de las corridas completas.
-3. Entrenar R=32 y R=64 completos con el mismo manifiesto del Objetivo 2.
-4. Evaluar las 2.468 muestras del test oficial y generar evidencia trazable.
+1. Regenerar en la máquina de entrenamiento el barrido corto con el contrato
+   de entorno y reanudación vigente.
+2. Ejecutar mediante el orquestador los entrenamientos completos R=32 y R=64.
+3. Revisar la evidencia consolidada de las 2.468 muestras del test oficial.
 
 El unpooling descrito por el artículo no forma parte de Net5 de clasificación
 y por eso no se incluye en esta ruta. Será necesario únicamente si se adopta

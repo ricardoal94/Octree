@@ -24,7 +24,7 @@ RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
 SCRIPT_ENTRENAMIENTO = RAIZ_PROYECTO / "fase3_net5" / "fase3_net5_entrenamiento.py"
 PREFIJO_MODELO = "net5_octree"
 SCHEMA_RESUMEN = "net5-octree-native"
-SCHEMA_RESUMEN_VERSION = "1.3.0"
+SCHEMA_RESUMEN_VERSION = "1.4.0"
 SCHEMA_BARRIDO = "net5-octree-worker-benchmark"
 SCHEMA_BARRIDO_VERSION = "1.2.0"
 VARIABLES_HILOS_CPU = (
@@ -232,6 +232,7 @@ def validar_resumen(
     errores: list[str] = []
     configuracion = resumen.get("configuracion") or {}
     particion = resumen.get("particion") or {}
+    entrenamiento = resumen.get("entrenamiento") or {}
     perfil = resumen.get("perfil_rendimiento") or {}
     detalle = perfil.get("detalle_backend") or {}
     _validar_entorno_ejecucion(resumen.get("entorno_ejecucion"), errores)
@@ -272,6 +273,26 @@ def validar_resumen(
         errores, isinstance(resumen.get("git_commit"), str)
         and len(resumen["git_commit"]) >= 7,
         "git_commit debe estar registrado",
+    )
+    _agregar_error(
+        errores, isinstance(entrenamiento, dict) and bool(entrenamiento),
+        "entrenamiento debe ser un objeto no vacio",
+    )
+    _agregar_error(
+        errores, entrenamiento.get("reanudar_solicitado") is False,
+        "el barrido debe ejecutarse desde cero",
+    )
+    _agregar_error(
+        errores, entrenamiento.get("epocas_completadas") == epochs,
+        f"entrenamiento.epocas_completadas debe ser {epochs}",
+    )
+    particion_sha256 = entrenamiento.get("particion_sha256")
+    _agregar_error(
+        errores,
+        isinstance(particion_sha256, str)
+        and len(particion_sha256) == 64
+        and all(c in "0123456789abcdef" for c in particion_sha256),
+        "entrenamiento.particion_sha256 debe ser un SHA-256",
     )
 
     esperados_config = {
