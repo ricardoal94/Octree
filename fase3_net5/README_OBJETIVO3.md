@@ -144,8 +144,12 @@ comprobar la VRAM con R=64.
 Las opciones de trazabilidad capturan la rama, el commit, el upstream y el
 estado del repositorio antes de crear resultados; la corrida se detiene si
 existen cambios locales o si el commit no está publicado. El resumen incluye
-además un `perfil_rendimiento` que separa carga del lote, transferencia de
-atributos, preparación y transferencia de planes, y el resto del `forward`.
+además un bloque `entorno_ejecucion` con sistema operativo, versiones de
+Python, PyTorch, CUDA y cuDNN, modelo de CPU, núcleos lógicos, RAM total y,
+cuando corresponde, nombre, capacidad de cómputo y VRAM de la GPU. No se debe
+completar esta información manualmente. También incluye un
+`perfil_rendimiento` que separa carga del lote, transferencia de atributos,
+preparación y transferencia de planes, y el resto del `forward`.
 Para R=64 se repite el mismo comando cambiando `--resolucion 32` por
 `--resolucion 64`.
 
@@ -189,8 +193,11 @@ configuración, la trazabilidad y las métricas del backend. Los checkpoints,
 logs y resultados se escriben en la carpeta hermana `<repositorio>_smoke_workers`
 para que la primera corrida no ensucie el repositorio e invalide las demás.
 Al finalizar genera `comparacion_workers_octnet.json` y
-`comparacion_workers_octnet.csv`; el JSON registra también el número de
-trabajadores con menor tiempo integral para cada resolución.
+`comparacion_workers_octnet.csv`; ambos incorporan el entorno experimental y
+el JSON registra también el número de trabajadores con menor tiempo integral
+para cada resolución. El validador exige que las seis corridas pertenezcan al
+mismo equipo y entorno de software, de modo que los resúmenes con el contrato
+anterior deben regenerarse y no pueden mezclarse con los nuevos.
 
 Si una ejecución se interrumpe, puede continuarse sin repetir las combinaciones
 que ya sean válidas:
