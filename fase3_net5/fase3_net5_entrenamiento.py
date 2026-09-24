@@ -21,8 +21,10 @@ Uso:
 
 import argparse
 import csv
+import hashlib
 import json
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -53,6 +55,9 @@ from trazabilidad_git import (
 
 RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
 SEED = 42
+SCHEMA_RESUMEN_VERSION = "1.4.0"
+SCHEMA_CHECKPOINT_ULTIMO = "net5-training-checkpoint"
+SCHEMA_CHECKPOINT_ULTIMO_VERSION = "1.0.0"
 VARIABLES_HILOS_CPU = (
     "OPENBLAS_NUM_THREADS",
     "OMP_NUM_THREADS",
@@ -72,6 +77,103 @@ def _ruta_portable(ruta: Path) -> str:
         return ruta.relative_to(RAIZ_PROYECTO.resolve()).as_posix()
     except ValueError:
         return ruta.name
+
+
+def _sha256_archivo(ruta: Path) -> str:
+    digest = hashlib.sha256()
+    with ruta.open("rb") as archivo:
+        for bloque in iter(lambda: archivo.read(1024 * 1024), b""):
+            digest.update(bloque)
+    return digest.hexdigest()
+
+
+def _guardar_checkpoint_atomico(datos: dict, ruta: Path) -> None:
+    temporal = ruta.with_name(f"{ruta.name}.tmp")
+    torch.save(datos, temporal)
+    os.replace(temporal, ruta)
+
+
+def _cargar_checkpoint(ruta: Path, device: torch.device) -> dict:
+    try:
+        checkpoint = torch.load(
+            ruta, map_location=device, weights_only=False,
+        )
+    except TypeError:  # PyTorch anterior a ``weights_only``.
+        checkpoint = torch.load(ruta, map_location=device)
+    if not isinstance(checkpoint, dict):
+        raise TypeError(f"El checkpoint {ruta} no contiene un diccionario")
+    return checkpoint
+
+
+def _capturar_estado_rng(loader_train) -> dict:
+    generador = getattr(loader_train, "generator", None)
+    return {
+        "python": random.getstate(),
+        "numpy": np.random.get_state(),
+        "torch_cpu": torch.get_rng_state(),
+        "torch_cuda": (
+            torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        ),
+        "dataloader": (
+            generador.get_state() if generador is not None else None
+        ),
+    }
+
+
+def _restaurar_estado_rng(estado: dict, loader_train) -> None:
+    requeridos = {"python", "numpy", "torch_cpu", "torch_cuda", "dataloader"}
+    faltantes = sorted(requeridos - set(estado))
+    if faltantes:
+        raise ValueError(
+            "El checkpoint no contiene todo el estado aleatorio: "
+            + ", ".join(faltantes)
+        )
+    random.setstate(estado["python"])
+    np.random.set_state(estado["numpy"])
+    torch.set_rng_state(estado["torch_cpu"])
+    if estado["torch_cuda"] is not None:
+        if not torch.cuda.is_available():
+            raise ValueError(
+                "El checkpoint contiene estado CUDA, pero CUDA no esta disponible"
+            )
+        torch.cuda.set_rng_state_all(estado["torch_cuda"])
+    generador = getattr(loader_train, "generator", None)
+    if estado["dataloader"] is not None:
+        if generador is None:
+            raise ValueError("El DataLoader no expone el generador guardado")
+        generador.set_state(estado["dataloader"])
+
+
+def _validar_contrato_reanudacion(guardado: object, actual: dict) -> None:
+    if not isinstance(guardado, dict):
+        raise TypeError("El checkpoint no contiene contrato de reanudacion")
+    diferencias = [
+        clave for clave, valor in actual.items()
+        if guardado.get(clave) != valor
+    ]
+    extras = sorted(set(guardado) - set(actual))
+    if diferencias or extras:
+        detalle = ", ".join(sorted(diferencias + extras))
+        raise ValueError(
+            "El checkpoint no corresponde a la corrida actual; difieren: "
+            f"{detalle}"
+        )
+
+
+def _reescribir_logs_historial(
+    historial: list[dict], csv_path: Path, json_path: Path,
+) -> None:
+    columnas = [
+        "epoca", "train_loss", "train_acc", "val_loss", "val_acc", "lr",
+        "tiempo_s",
+    ]
+    with csv_path.open("w", encoding="utf-8", newline="") as archivo:
+        escritor = csv.DictWriter(archivo, fieldnames=columnas)
+        escritor.writeheader()
+        escritor.writerows(historial)
+    with json_path.open("w", encoding="utf-8", newline="\n") as archivo:
+        json.dump(historial, archivo, indent=2, ensure_ascii=False)
+        archivo.write("\n")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -335,6 +437,13 @@ def main():
         "--resultados-dir", type=Path,
         default=RAIZ_PROYECTO / "resultados" / "objetivo3",
     )
+    parser.add_argument(
+        "--reanudar", action="store_true",
+        help=(
+            "Continua desde el checkpoint de ultima epoca. Rechaza cambios "
+            "de codigo, entorno, datos o hiperparametros."
+        ),
+    )
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument(
         "--lotes-perfil", type=int, default=3,
@@ -363,6 +472,12 @@ def main():
         raise ValueError("--lotes-perfil debe ser al menos 1")
     if args.num_workers < 0:
         raise ValueError("--num-workers no puede ser negativo")
+    if args.epochs < 1:
+        raise ValueError("--epochs debe ser al menos 1")
+    if args.patience < 1:
+        raise ValueError("--patience debe ser al menos 1")
+    if args.lr <= 0:
+        raise ValueError("--lr debe ser positivo")
 
     estado_git_inicial = capturar_estado_git(RAIZ_PROYECTO)
     if args.exigir_git_limpio:
@@ -373,6 +488,8 @@ def main():
     R = args.resolucion
     if args.batch_size is None:
         args.batch_size = 1 if args.backend == "octree_native" else 16
+    if args.batch_size < 1:
+        raise ValueError("--batch_size debe ser al menos 1")
 
     if args.backend == "dense_reference" and not args.tag:
         raise ValueError(
@@ -458,15 +575,101 @@ def main():
     csv_path = args.logs_dir / f"{prefijo}_historial_R{R}{args.tag}.csv"
     json_path = args.logs_dir / f"{prefijo}_historial_R{R}{args.tag}.json"
     ckpt_path = args.checkpoints_dir / f"{prefijo}_mejor_R{R}{args.tag}.pth"
+    ckpt_ultimo_path = (
+        args.checkpoints_dir / f"{prefijo}_ultimo_R{R}{args.tag}.pth"
+    )
+    contrato_reanudacion = {
+        "git_commit": estado_git_inicial.get("git_commit"),
+        "backend": args.backend,
+        "backend_version": "1.1.1",
+        "resolucion": R,
+        "seed": SEED,
+        "epochs": args.epochs,
+        "patience": args.patience,
+        "batch_size": args.batch_size,
+        "num_workers": args.num_workers,
+        "lr": args.lr,
+        "weight_decay": 1e-4,
+        "scheduler": "StepLR(step_size=20, gamma=0.7)",
+        "precalcular_planes": args.precalcular_planes,
+        "limite_train": args.limite_train,
+        "limite_val": args.limite_val,
+        "limite_test": args.limite_test,
+        "tag": args.tag,
+        "particion_sha256": _sha256_archivo(args.particion_manifest),
+        "n_train_usado": len(loader_train.dataset),
+        "n_val_usado": len(loader_val.dataset),
+        "n_test_usado": len(loader_test.dataset),
+        "entorno_ejecucion": entorno_ejecucion,
+    }
 
-    historial = []
+    historial: list[dict] = []
     mejor_val_acc = float("-inf")
+    mejor_epoca = 0
     epocas_sin_mejora = 0
+    epoca_inicial = 1
+    reanudado_desde_epoca = None
+    tiempo_entrenamiento_acumulado_s = 0.0
+    vram_pico_acumulada_mb = 0.0
 
-    with open(csv_path, "w", encoding="utf-8", newline="") as f:
-        csv.writer(f).writerow(
-            ["epoca", "train_loss", "train_acc", "val_loss", "val_acc", "lr", "tiempo_s"]
+    if args.reanudar:
+        if not ckpt_ultimo_path.is_file():
+            raise FileNotFoundError(
+                "No existe el checkpoint requerido para reanudar: "
+                f"{ckpt_ultimo_path}"
+            )
+        if not ckpt_path.is_file():
+            raise FileNotFoundError(
+                "No existe el checkpoint del mejor modelo: "
+                f"{ckpt_path}"
+            )
+        ultimo = _cargar_checkpoint(ckpt_ultimo_path, device)
+        if ultimo.get("schema_name") != SCHEMA_CHECKPOINT_ULTIMO:
+            raise ValueError("El checkpoint de reanudacion tiene schema_name invalido")
+        if ultimo.get("schema_version") != SCHEMA_CHECKPOINT_ULTIMO_VERSION:
+            raise ValueError("El checkpoint de reanudacion tiene version incompatible")
+        _validar_contrato_reanudacion(
+            ultimo.get("contrato_reanudacion"), contrato_reanudacion,
         )
+        modelo.load_state_dict(ultimo["model_state"])
+        optimizador.load_state_dict(ultimo["optimizer_state"])
+        scheduler.load_state_dict(ultimo["scheduler_state"])
+        historial = ultimo.get("historial")
+        if not isinstance(historial, list):
+            raise ValueError("El checkpoint no contiene un historial valido")
+        ultima_epoca = int(ultimo.get("epoca", 0))
+        if [fila.get("epoca") for fila in historial] != list(
+            range(1, ultima_epoca + 1)
+        ):
+            raise ValueError("El historial del checkpoint no es consecutivo")
+        mejor_val_acc = float(ultimo["mejor_val_acc"])
+        mejor_epoca = int(ultimo["mejor_epoca"])
+        epocas_sin_mejora = int(ultimo["epocas_sin_mejora"])
+        tiempo_entrenamiento_acumulado_s = float(
+            ultimo["tiempo_entrenamiento_acumulado_s"]
+        )
+        vram_pico_acumulada_mb = float(
+            ultimo.get("vram_pico_acumulada_mb", 0.0)
+        )
+        _restaurar_estado_rng(ultimo["estado_rng"], loader_train)
+        mejor_guardado = _cargar_checkpoint(ckpt_path, device)
+        if (
+            int(mejor_guardado.get("epoca", 0)) != mejor_epoca
+            or float(mejor_guardado.get("mejor_val_acc", -1.0))
+            != mejor_val_acc
+        ):
+            raise ValueError(
+                "El checkpoint del mejor modelo no coincide con la ultima "
+                "epoca cerrada; no se puede reanudar de forma segura"
+            )
+        epoca_inicial = ultima_epoca + 1
+        reanudado_desde_epoca = ultima_epoca
+        print(
+            f"  Reanudacion    : desde epoca {ultima_epoca}; "
+            f"siguiente={epoca_inicial}"
+        )
+
+    _reescribir_logs_historial(historial, csv_path, json_path)
 
     print(f"\n  Epocas max   : {args.epochs}")
     print(f"  Early stop   : patience={args.patience}")
@@ -478,10 +681,10 @@ def main():
     print(f"  Train batches: {len(loader_train)}")
     print(f"  Val   batches: {len(loader_val)}\n")
 
-    _sincronizar_cuda(device)
-    t_inicio = time.perf_counter()
-
-    for epoca in range(1, args.epochs + 1):
+    epocas_ejecutadas_esta_invocacion = 0
+    for epoca in range(epoca_inicial, args.epochs + 1):
+        if epocas_sin_mejora >= args.patience:
+            break
         _sincronizar_cuda(device)
         t_ep = time.perf_counter()
 
@@ -497,12 +700,16 @@ def main():
         es_mejor = val_acc > mejor_val_acc
         if es_mejor:
             mejor_val_acc = val_acc
+            mejor_epoca = epoca
             epocas_sin_mejora = 0
-            torch.save({
-                "epoca": epoca, "model_state": modelo.state_dict(),
-                "optimizer_state": optimizador.state_dict(),
+            _guardar_checkpoint_atomico({
+                "schema_name": "net5-best-checkpoint",
+                "schema_version": "1.0.0",
+                "epoca": epoca,
+                "model_state": modelo.state_dict(),
                 "mejor_val_acc": mejor_val_acc,
                 "resolucion": R,
+                "contrato_reanudacion": contrato_reanudacion,
             }, ckpt_path)
             marca = " <- mejor"
         else:
@@ -516,26 +723,44 @@ def main():
             f"LR {lr_actual:.6f} | {t_ep:.1f}s{marca}"
         )
 
-        # VRAM
-        if device.type == "cuda" and epoca == 1:
-            vram_mb = torch.cuda.max_memory_allocated(device) / 1e6
-            print(f"  [GPU] VRAM pico: {vram_mb:.1f} MB")
-
-        # Log
-        fila = [epoca, round(train_loss,6), round(train_acc,6),
-                round(val_loss,6), round(val_acc,6), round(lr_actual,8), round(t_ep,2)]
-        with open(csv_path, "a", encoding="utf-8", newline="") as f:
-            csv.writer(f).writerow(fila)
+        tiempo_entrenamiento_acumulado_s += t_ep
+        epocas_ejecutadas_esta_invocacion += 1
+        if device.type == "cuda":
+            vram_actual_mb = torch.cuda.max_memory_allocated(device) / 1e6
+            vram_pico_acumulada_mb = max(
+                vram_pico_acumulada_mb, vram_actual_mb,
+            )
+            if epocas_ejecutadas_esta_invocacion == 1:
+                print(f"  [GPU] VRAM pico: {vram_actual_mb:.1f} MB")
 
         historial.append({
-            "epoca": epoca, "train_loss": round(train_loss,6),
-            "train_acc": round(train_acc,6), "val_loss": round(val_loss,6),
-            "val_acc": round(val_acc,6), "lr": round(lr_actual,8),
-            "tiempo_s": round(t_ep,2),
+            "epoca": epoca,
+            "train_loss": round(train_loss, 6),
+            "train_acc": round(train_acc, 6),
+            "val_loss": round(val_loss, 6),
+            "val_acc": round(val_acc, 6),
+            "lr": round(lr_actual, 8),
+            "tiempo_s": round(t_ep, 2),
         })
-        with open(json_path, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(historial, f, indent=2, ensure_ascii=False)
-            f.write("\n")
+        _reescribir_logs_historial(historial, csv_path, json_path)
+        _guardar_checkpoint_atomico({
+            "schema_name": SCHEMA_CHECKPOINT_ULTIMO,
+            "schema_version": SCHEMA_CHECKPOINT_ULTIMO_VERSION,
+            "contrato_reanudacion": contrato_reanudacion,
+            "epoca": epoca,
+            "model_state": modelo.state_dict(),
+            "optimizer_state": optimizador.state_dict(),
+            "scheduler_state": scheduler.state_dict(),
+            "mejor_val_acc": mejor_val_acc,
+            "mejor_epoca": mejor_epoca,
+            "epocas_sin_mejora": epocas_sin_mejora,
+            "historial": historial,
+            "tiempo_entrenamiento_acumulado_s": (
+                tiempo_entrenamiento_acumulado_s
+            ),
+            "vram_pico_acumulada_mb": vram_pico_acumulada_mb,
+            "estado_rng": _capturar_estado_rng(loader_train),
+        }, ckpt_ultimo_path)
 
         # Early stopping
         if epocas_sin_mejora >= args.patience:
@@ -544,11 +769,16 @@ def main():
             break
 
     _sincronizar_cuda(device)
-    t_total = (time.perf_counter() - t_inicio) / 60
+    t_total = tiempo_entrenamiento_acumulado_s / 60
+
+    if not ckpt_path.is_file():
+        raise FileNotFoundError(
+            "No se genero el checkpoint del mejor modelo; no es posible evaluar"
+        )
 
     # Evaluacion final en test con el mejor modelo
     print("\n[Test] Cargando mejor modelo y evaluando...")
-    ckpt = torch.load(ckpt_path, map_location=device)
+    ckpt = _cargar_checkpoint(ckpt_path, device)
     modelo.load_state_dict(ckpt["model_state"])
     test_loss, test_acc = evaluar(modelo, loader_test, criterio, device, "Test")
 
@@ -582,8 +812,14 @@ def main():
     tamano_mb = ckpt_path.stat().st_size / 1e6
 
     # VRAM pico total
-    vram_pico_mb = torch.cuda.max_memory_allocated(device) / 1e6 \
-                   if device.type == "cuda" else 0.0
+    vram_pico_mb = (
+        max(
+            vram_pico_acumulada_mb,
+            torch.cuda.max_memory_allocated(device) / 1e6,
+        )
+        if device.type == "cuda"
+        else 0.0
+    )
 
     print("\n" + "=" * 60)
     print(f"  {nombre_backend} COMPLETADO — R={R}^3")
@@ -650,7 +886,7 @@ def main():
         "schema_name": (
             "net5-octree-native" if es_nativo else "dense-table5-diagnostic"
         ),
-        "schema_version": "1.3.0",
+        "schema_version": SCHEMA_RESUMEN_VERSION,
         "backend_version": "1.1.1",
         "alcance": (
             "PARCIAL_SMOKE"
@@ -713,6 +949,22 @@ def main():
             "precalcular_planes": (
                 args.precalcular_planes if es_nativo else None
             ),
+        },
+        "entrenamiento": {
+            "reanudar_solicitado": args.reanudar,
+            "reanudado_desde_epoca": reanudado_desde_epoca,
+            "epocas_ejecutadas_esta_invocacion": (
+                epocas_ejecutadas_esta_invocacion
+            ),
+            "epocas_completadas": len(historial),
+            "detenido_por_early_stopping": (
+                epocas_sin_mejora >= args.patience
+            ),
+            "checkpoint_mejor": ckpt_path.name,
+            "checkpoint_ultimo": ckpt_ultimo_path.name,
+            "historial_csv": csv_path.name,
+            "historial_json": json_path.name,
+            "particion_sha256": contrato_reanudacion["particion_sha256"],
         },
         "mejor_val_acc":  round(float(mejor_val_acc), 6),
         "mejor_epoca":    int(ckpt["epoca"]),
