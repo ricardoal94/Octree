@@ -41,11 +41,43 @@ def test_entorno_workers_limita_hilos_y_conserva_otras_variables():
 def _resumen_valido(resolucion=32, workers=4, commit="a" * 40):
     return {
         "schema_name": "net5-octree-native",
-        "schema_version": "1.2.0",
+        "schema_version": "1.3.0",
         "backend_version": "1.1.1",
         "alcance": "PARCIAL_SMOKE",
         "valido_como_resultado_objetivo3": False,
         "backend": "octree_native",
+        "entorno_ejecucion": {
+            "sistema_operativo": {
+                "sistema": "Windows",
+                "release": "11",
+                "version": "10.0.26100",
+                "arquitectura": "AMD64",
+            },
+            "python": {
+                "version": "3.14.0",
+                "implementacion": "CPython",
+            },
+            "pytorch": {
+                "version": "2.9.0+cu128",
+                "cuda_compilacion": "12.8",
+                "cudnn_version": 91002,
+            },
+            "hardware": {
+                "cpu_modelo": "CPU de prueba",
+                "cpu_nucleos_logicos": 16,
+                "ram_total_bytes": 34_359_738_368,
+                "ram_total_gib": 32.0,
+                "dispositivo": "cuda",
+                "gpu": {
+                    "nombre": "NVIDIA GeForce RTX 5070",
+                    "indice": 0,
+                    "cantidad_dispositivos": 1,
+                    "capacidad_cuda": "12.0",
+                    "vram_total_bytes": 12_884_901_888,
+                    "vram_total_gib": 12.0,
+                },
+            },
+        },
         "git_commit": commit,
         "git_branch": "feature/octnet-native-backend",
         "git_dirty": False,
@@ -181,6 +213,18 @@ def test_validador_acepta_un_resumen_completo():
             ),
             "n_interacciones_convolucion",
         ),
+        (
+            lambda r: r.pop("entorno_ejecucion"),
+            "entorno_ejecucion",
+        ),
+        (
+            lambda r: r["entorno_ejecucion"]["hardware"].update(gpu=None),
+            "hardware.gpu",
+        ),
+        (
+            lambda r: r["entorno_ejecucion"].update(hardware=[]),
+            "hardware debe ser un objeto",
+        ),
     ],
 )
 def test_validador_rechaza_configuracion_o_perfil_incompleto(mutacion, mensaje):
@@ -221,7 +265,11 @@ def test_consolidado_es_ordenado_y_auditable(tmp_path):
 
     consolidado = json.loads(ruta_json.read_text(encoding="utf-8"))
     assert consolidado["schema_name"] == "net5-octree-worker-benchmark"
+    assert consolidado["schema_version"] == "1.2.0"
     assert consolidado["estado"] == "VALIDADO"
+    assert consolidado["entorno_ejecucion"]["hardware"]["gpu"]["nombre"] == (
+        "NVIDIA GeForce RTX 5070"
+    )
     assert consolidado["seleccion_workers"] == {"32": 0, "64": 4}
     assert [
         (fila["resolucion"], fila["num_workers"])
@@ -233,3 +281,18 @@ def test_consolidado_es_ordenado_y_auditable(tmp_path):
     assert len(filas) == 3
     assert filas[0]["resolucion"] == "32"
     assert filas[0]["num_workers"] == "0"
+    assert filas[0]["gpu_nombre"] == "NVIDIA GeForce RTX 5070"
+
+
+def test_conjunto_exige_el_mismo_entorno_en_todas_las_corridas():
+    ejecuciones = [
+        _resumen_valido(resolucion, workers)
+        for resolucion in (32, 64)
+        for workers in (0, 4, 8)
+    ]
+    ejecuciones[-1]["entorno_ejecucion"]["python"]["version"] = "3.14.1"
+
+    with pytest.raises(ErrorValidacionSmoke, match="entorno_ejecucion"):
+        validar_conjunto(
+            ejecuciones, resoluciones=[32, 64], workers=[0, 4, 8],
+        )
