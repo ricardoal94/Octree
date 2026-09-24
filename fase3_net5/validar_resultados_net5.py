@@ -478,7 +478,17 @@ def escribir_consolidado(
     valido = not errores_conjunto and all(
         not validacion["errores"] for validacion in validaciones
     )
-    filas = [_fila(resumenes[r]) for r in RESOLUCIONES if r in resumenes]
+    resoluciones_validas = {
+        validacion.get("resolucion")
+        for validacion in validaciones
+        if validacion.get("valido") is True
+        and not validacion.get("errores")
+    }
+    filas = [
+        _fila(resumenes[resolucion])
+        for resolucion in RESOLUCIONES
+        if resolucion in resumenes and resolucion in resoluciones_validas
+    ]
     informe = {
         "schema_name": SCHEMA_VALIDACION,
         "schema_version": SCHEMA_VALIDACION_VERSION,
