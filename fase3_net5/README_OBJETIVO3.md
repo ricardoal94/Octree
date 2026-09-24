@@ -154,6 +154,10 @@ predeterminada, los planes se preparan dentro del `DataLoader`; con
 `num_workers > 0` pueden construirse en paralelo antes de que el lote llegue
 al proceso que controla la GPU. Para `batch_size=1`, el backend reutiliza
 directamente los arreglos de cada geometría y evita concatenaciones completas.
+El barrido limita a uno los hilos internos de OpenBLAS, OMP, MKL y NumExpr para
+evitar que cada trabajador multiplique el consumo de memoria. Los trabajadores
+de entrenamiento y validación se cierran al terminar cada recorrido; solo los
+de test permanecen activos porque ese cargador se reutiliza en las mediciones.
 
 El resumen separa dos medidas: `tiempo_inferencia_promedio_ms` incluye solo el
 `forward`, mientras `tiempo_pipeline_promedio_ms` incluye carga, preparación
