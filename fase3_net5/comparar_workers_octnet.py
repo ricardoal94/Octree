@@ -24,9 +24,9 @@ RAIZ_PROYECTO = Path(__file__).resolve().parent.parent
 SCRIPT_ENTRENAMIENTO = RAIZ_PROYECTO / "fase3_net5" / "fase3_net5_entrenamiento.py"
 PREFIJO_MODELO = "net5_octree"
 SCHEMA_RESUMEN = "net5-octree-native"
-SCHEMA_RESUMEN_VERSION = "1.2.0"
+SCHEMA_RESUMEN_VERSION = "1.3.0"
 SCHEMA_BARRIDO = "net5-octree-worker-benchmark"
-SCHEMA_BARRIDO_VERSION = "1.1.0"
+SCHEMA_BARRIDO_VERSION = "1.2.0"
 VARIABLES_HILOS_CPU = (
     "OPENBLAS_NUM_THREADS",
     "OMP_NUM_THREADS",
@@ -62,6 +62,93 @@ def _valor_numerico_positivo(valor) -> bool:
 def _agregar_error(errores: list[str], condicion: bool, mensaje: str) -> None:
     if not condicion:
         errores.append(mensaje)
+
+
+def _cadena_no_vacia(valor) -> bool:
+    return isinstance(valor, str) and bool(valor.strip())
+
+
+def _validar_entorno_ejecucion(entorno: object, errores: list[str]) -> None:
+    """Valida que el resumen identifique el equipo y el software usados."""
+
+    _agregar_error(
+        errores, isinstance(entorno, dict),
+        "entorno_ejecucion debe ser un objeto",
+    )
+    if not isinstance(entorno, dict):
+        return
+
+    secciones = {}
+    for seccion in ("sistema_operativo", "python", "pytorch", "hardware"):
+        contenido = entorno.get(seccion)
+        _agregar_error(
+            errores, isinstance(contenido, dict),
+            f"entorno_ejecucion.{seccion} debe ser un objeto",
+        )
+        secciones[seccion] = contenido if isinstance(contenido, dict) else {}
+
+    sistema = secciones["sistema_operativo"]
+    python = secciones["python"]
+    pytorch = secciones["pytorch"]
+    hardware = secciones["hardware"]
+
+    for clave in ("sistema", "release", "version", "arquitectura"):
+        _agregar_error(
+            errores, _cadena_no_vacia(sistema.get(clave)),
+            f"entorno_ejecucion.sistema_operativo.{clave} debe registrarse",
+        )
+    for clave in ("version", "implementacion"):
+        _agregar_error(
+            errores, _cadena_no_vacia(python.get(clave)),
+            f"entorno_ejecucion.python.{clave} debe registrarse",
+        )
+    _agregar_error(
+        errores, _cadena_no_vacia(pytorch.get("version")),
+        "entorno_ejecucion.pytorch.version debe registrarse",
+    )
+    _agregar_error(
+        errores, _cadena_no_vacia(hardware.get("cpu_modelo")),
+        "entorno_ejecucion.hardware.cpu_modelo debe registrarse",
+    )
+    for clave in ("cpu_nucleos_logicos", "ram_total_bytes", "ram_total_gib"):
+        _agregar_error(
+            errores, _valor_numerico_positivo(hardware.get(clave)),
+            f"entorno_ejecucion.hardware.{clave} debe ser mayor que cero",
+        )
+
+    dispositivo = hardware.get("dispositivo")
+    _agregar_error(
+        errores, dispositivo in {"cpu", "cuda"},
+        "entorno_ejecucion.hardware.dispositivo debe ser cpu o cuda",
+    )
+    gpu = hardware.get("gpu")
+    if dispositivo == "cuda":
+        _agregar_error(
+            errores, isinstance(gpu, dict),
+            "entorno_ejecucion.hardware.gpu debe registrarse para CUDA",
+        )
+        if isinstance(gpu, dict):
+            _agregar_error(
+                errores, _cadena_no_vacia(gpu.get("nombre")),
+                "entorno_ejecucion.hardware.gpu.nombre debe registrarse",
+            )
+            _agregar_error(
+                errores, _cadena_no_vacia(gpu.get("capacidad_cuda")),
+                "entorno_ejecucion.hardware.gpu.capacidad_cuda debe registrarse",
+            )
+            for clave in (
+                "cantidad_dispositivos", "vram_total_bytes", "vram_total_gib",
+            ):
+                _agregar_error(
+                    errores, _valor_numerico_positivo(gpu.get(clave)),
+                    "entorno_ejecucion.hardware.gpu."
+                    f"{clave} debe ser mayor que cero",
+                )
+    elif dispositivo == "cpu":
+        _agregar_error(
+            errores, gpu is None,
+            "entorno_ejecucion.hardware.gpu debe ser null para CPU",
+        )
 
 
 def ruta_resumen(resultados_dir: Path, resolucion: int, workers: int) -> Path:
@@ -147,6 +234,7 @@ def validar_resumen(
     particion = resumen.get("particion") or {}
     perfil = resumen.get("perfil_rendimiento") or {}
     detalle = perfil.get("detalle_backend") or {}
+    _validar_entorno_ejecucion(resumen.get("entorno_ejecucion"), errores)
 
     _agregar_error(
         errores, resumen.get("schema_name") == SCHEMA_RESUMEN,
@@ -347,6 +435,14 @@ def validar_conjunto(
         "backend_version": {
             resumen.get("backend_version") for resumen in ejecuciones
         },
+        "entorno_ejecucion": {
+            json.dumps(
+                resumen.get("entorno_ejecucion"),
+                sort_keys=True,
+                ensure_ascii=True,
+            )
+            for resumen in ejecuciones
+        },
     }
     for campo, valores in campos_comunes.items():
         _agregar_error(
@@ -366,6 +462,14 @@ COLUMNAS_CSV = [
     "num_workers",
     "git_commit",
     "git_branch",
+    "sistema_operativo",
+    "python_version",
+    "pytorch_version",
+    "cuda_version",
+    "cpu_modelo",
+    "ram_total_gib",
+    "gpu_nombre",
+    "gpu_vram_total_gib",
     "n_train_usado",
     "n_val_usado",
     "n_test_usado",
@@ -388,11 +492,27 @@ def fila_comparacion(resumen: dict) -> dict:
     configuracion = resumen["configuracion"]
     particion = resumen["particion"]
     perfil = resumen["perfil_rendimiento"]
+    entorno = resumen["entorno_ejecucion"]
+    sistema = entorno["sistema_operativo"]
+    python = entorno["python"]
+    pytorch = entorno["pytorch"]
+    hardware = entorno["hardware"]
+    gpu = hardware["gpu"] or {}
     return {
         "resolucion": resumen["resolucion"],
         "num_workers": configuracion["num_workers"],
         "git_commit": resumen["git_commit"],
         "git_branch": resumen["git_branch"],
+        "sistema_operativo": (
+            f"{sistema['sistema']} {sistema['release']} ({sistema['arquitectura']})"
+        ),
+        "python_version": python["version"],
+        "pytorch_version": pytorch["version"],
+        "cuda_version": pytorch["cuda_compilacion"],
+        "cpu_modelo": hardware["cpu_modelo"],
+        "ram_total_gib": hardware["ram_total_gib"],
+        "gpu_nombre": gpu.get("nombre"),
+        "gpu_vram_total_gib": gpu.get("vram_total_gib"),
         "n_train_usado": particion["n_train_usado"],
         "n_val_usado": particion["n_val_usado"],
         "n_test_usado": particion["n_test_usado"],
@@ -430,6 +550,7 @@ def escribir_consolidado(
 ) -> tuple[Path, Path]:
     """Escribe el informe JSON y la tabla CSV del barrido validado."""
 
+    ejecuciones = list(ejecuciones)
     resoluciones = tuple(resoluciones)
     workers = tuple(workers)
     filas = sorted(
@@ -452,6 +573,7 @@ def escribir_consolidado(
         "n_ejecuciones": len(filas),
         "git_commit": filas[0]["git_commit"],
         "git_branch": filas[0]["git_branch"],
+        "entorno_ejecucion": ejecuciones[0]["entorno_ejecucion"],
         "criterio": (
             "Seleccionar por tiempo de pipeline; forward, memoria de planes y "
             "VRAM se conservan como diagnosticos y restricciones."
