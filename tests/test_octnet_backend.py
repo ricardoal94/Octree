@@ -4,20 +4,19 @@ Se omiten en entornos sin PyTorch. No requieren ModelNet40: construyen
 grid-octrees sinteticos con el mismo formato jerarquico del proyecto.
 """
 
-import io
 import inspect
+import io
 
 import numpy as np
 import pytest
 
-
 torch = pytest.importorskip("torch", reason="El backend nativo requiere PyTorch")
-import torch.nn as nn
-
+import net5_dataset_octree
 from grid_octree import convertir_a_grid_octree, precalcular_planes_net5
 from net5_modelo import Net5Octree
 from octnet_backend import LoteGridOctree
 from octree_real import construir_octree
+from torch import nn
 
 
 def _lote_sintetico(resolucion: int, batch_size: int = 1):
@@ -128,6 +127,37 @@ def test_precalculo_y_ruta_batch_uno_conservan_logits():
         esperado = modelo(lote_referencia)
         obtenido = modelo(lote_precalculado)
     assert torch.allclose(esperado, obtenido, atol=1e-6)
+
+
+@pytest.mark.parametrize("num_workers", [0, 2])
+def test_workers_persistentes_solo_se_conservan_en_test(
+    monkeypatch, tmp_path, num_workers,
+):
+    def listar_muestras_falsas(_raiz, _split):
+        return [tmp_path / "muestra.npz"], np.asarray([0]), ["muestra"]
+
+    monkeypatch.setattr(
+        net5_dataset_octree,
+        "listar_muestras_octree",
+        listar_muestras_falsas,
+    )
+    indice = np.asarray([0], dtype=np.int64)
+    loader_train, loader_val, loader_test = (
+        net5_dataset_octree.crear_dataloaders_octree(
+            raiz_resolucion=tmp_path,
+            resolucion=32,
+            idx_train=indice,
+            idx_val=indice,
+            idx_test=indice,
+            batch_size=1,
+            num_workers=num_workers,
+        )
+    )
+
+    assert loader_train.persistent_workers is False
+    assert loader_val.persistent_workers is False
+    assert loader_test.persistent_workers is (num_workers > 0)
+    assert loader_test.prefetch_factor == (1 if num_workers > 0 else None)
 
 
 def test_ensamble_multimuestra_conserva_primera_prediccion():

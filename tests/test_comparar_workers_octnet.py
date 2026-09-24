@@ -3,8 +3,10 @@ import json
 
 import pytest
 from comparar_workers_octnet import (
+    VARIABLES_HILOS_CPU,
     ErrorValidacionSmoke,
     construir_comando,
+    construir_entorno_workers,
     escribir_consolidado,
     resolver_particion_manifest,
     ruta_resumen,
@@ -26,11 +28,21 @@ def test_manifest_por_defecto_queda_fuera_del_repositorio(tmp_path):
     )
 
 
+def test_entorno_workers_limita_hilos_y_conserva_otras_variables():
+    entorno = construir_entorno_workers({
+        "OPENBLAS_NUM_THREADS": "32",
+        "VARIABLE_AJENA": "se_conserva",
+    })
+
+    assert entorno["VARIABLE_AJENA"] == "se_conserva"
+    assert all(entorno[variable] == "1" for variable in VARIABLES_HILOS_CPU)
+
+
 def _resumen_valido(resolucion=32, workers=4, commit="a" * 40):
     return {
         "schema_name": "net5-octree-native",
         "schema_version": "1.2.0",
-        "backend_version": "1.1.0",
+        "backend_version": "1.1.1",
         "alcance": "PARCIAL_SMOKE",
         "valido_como_resultado_objetivo3": False,
         "backend": "octree_native",
@@ -53,6 +65,14 @@ def _resumen_valido(resolucion=32, workers=4, commit="a" * 40):
             "batch_size": 1,
             "num_workers": workers,
             "prefetch_factor": 1 if workers > 0 else None,
+            "hilos_bibliotecas_cpu": {
+                variable: "1" for variable in VARIABLES_HILOS_CPU
+            },
+            "persistent_workers": {
+                "train": False,
+                "val": False,
+                "test": workers > 0,
+            },
             "lotes_perfil": 3,
             "exigir_git_limpio": True,
             "exigir_git_publicado": True,
@@ -140,6 +160,14 @@ def test_validador_acepta_un_resumen_completo():
         (
             lambda r: r["configuracion"].update(exigir_git_publicado=False),
             "exigir_git_publicado",
+        ),
+        (
+            lambda r: r["configuracion"].update(hilos_bibliotecas_cpu={}),
+            "hilos_bibliotecas_cpu",
+        ),
+        (
+            lambda r: r["configuracion"].update(persistent_workers={}),
+            "persistent_workers",
         ),
         (
             lambda r: r["perfil_rendimiento"].update(
