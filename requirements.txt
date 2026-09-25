@@ -8,6 +8,8 @@ torchvision>=0.15.0
 # Computo cientifico
 numpy>=1.24.0
 scipy>=1.10.0
+# Compila el plan de convolucion OctNet (sin numba se usa la version numpy)
+numba>=0.67.0
 
 # Machine Learning (Bosque Aleatorio)
 scikit-learn>=1.3.0
