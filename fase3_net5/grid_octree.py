@@ -16,6 +16,10 @@ El plan de convolucion implementa el equivalente matematico de
 volumen de interseccion entre hojas. No crea tensores densos de alta
 resolucion y no depende de PyTorch, por lo que su geometria puede probarse de
 forma aislada.
+
+El plan de convolucion se compila con numba cuando esta instalado. Sin numba
+se usa una version vectorizada con numpy que produce exactamente el mismo
+plan, de modo que la CI ligera no necesita la dependencia.
 """
 
 from __future__ import annotations
@@ -25,6 +29,11 @@ from functools import cached_property
 from itertools import combinations, product
 
 import numpy as np
+
+try:
+    from numba import njit
+except ImportError:  # pragma: no cover - depende del entorno
+    njit = None
 
 
 PROFUNDIDAD_OCTREE_SUPERFICIAL = 3
@@ -355,6 +364,20 @@ _PATRONES_EXTERIORES = tuple(
 def construir_plan_convolucion(geometria: GeometriaGridOctree) -> PlanConvolucion:
     """Construye el stencil disperso exacto de una convolucion 3x3x3.
 
+    Usa la version compilada con numba si esta disponible y, si no, la
+    version numpy. Ambas producen el mismo plan (valores, dtype y orden).
+    """
+
+    if BACKEND_PLAN_CONVOLUCION == "numba":
+        return _construir_plan_convolucion_numba(geometria)
+    return _construir_plan_convolucion_numpy(geometria)
+
+
+def _construir_plan_convolucion_numpy(
+    geometria: GeometriaGridOctree,
+) -> PlanConvolucion:
+    """Version vectorizada con numpy del plan de convolucion.
+
     Para cada hoja de salida y cada desplazamiento del kernel se buscan las
     hojas de entrada que intersecan la caja desplazada. Como las hojas forman
     una particion, una celda candidata que se solapa con la hoja de salida
@@ -519,6 +542,195 @@ def construir_plan_convolucion(geometria: GeometriaGridOctree) -> PlanConvolucio
         entrada=entrada[orden].astype(np.int64, copy=False),
         kernel=kernel,
         coeficiente=coeficiente[orden],
+        offsets_kernel=offsets_kernel,
+    )
+
+
+def _celdas_por_eje(origen, desplazamiento, tamano_salida, tamano_entrada,
+                    resolucion, inicios, longitudes, solapan_hoja):
+    """Celdas de arista ``tamano_entrada`` que tocan la caja desplazada.
+
+    Trabaja sobre un eje. Guarda, en orden creciente, el inicio de cada celda,
+    su solapamiento con ``[o + d, o + d + s_out)`` y si ademas solapa la hoja
+    ``[o, o + s_out)``. Devuelve cuantas celdas escribio (como mucho 9).
+    """
+
+    inferior = origen + desplazamiento
+    superior = inferior + tamano_salida
+    celda = (inferior // tamano_entrada) * tamano_entrada
+    n_celdas = 0
+    while celda < superior:
+        if celda >= 0 and celda + tamano_entrada <= resolucion:
+            longitud = (min(superior, celda + tamano_entrada)
+                        - max(inferior, celda))
+            if longitud > 0:
+                inicios[n_celdas] = celda
+                longitudes[n_celdas] = longitud
+                solapan_hoja[n_celdas] = (
+                    min(origen + tamano_salida, celda + tamano_entrada)
+                    - max(origen, celda)
+                ) > 0
+                n_celdas += 1
+        celda += tamano_entrada
+    return n_celdas
+
+
+def _ampliar_aristas(salida, entrada, kernel, coeficiente, total):
+    capacidad = 2 * len(salida)
+    nueva_salida = np.empty(capacidad, np.int64)
+    nueva_entrada = np.empty(capacidad, np.int64)
+    nuevo_kernel = np.empty(capacidad, np.int8)
+    nuevo_coeficiente = np.empty(capacidad, np.float32)
+    nueva_salida[:total] = salida[:total]
+    nueva_entrada[:total] = entrada[:total]
+    nuevo_kernel[:total] = kernel[:total]
+    nuevo_coeficiente[:total] = coeficiente[:total]
+    return (nueva_salida, nueva_entrada, nuevo_kernel, nuevo_coeficiente,
+            capacidad)
+
+
+def _aristas_convolucion(origenes, tamanos, resolucion, claves_ordenadas,
+                         orden_claves):
+    """Recorre las aristas directamente en el orden oficial del plan.
+
+    El orden es kernel, arista de salida, arista de entrada, hoja de salida y
+    ``(x, y, z)`` de la celda de entrada, igual que la version numpy. Se
+    descartan sin buscarlas las celdas que solapan la hoja de salida sin ser
+    ella misma, porque no pueden ser hojas de una particion.
+    """
+
+    n_hojas = len(tamanos)
+    capacidad = 64 * n_hojas
+    salida = np.empty(capacidad, np.int64)
+    entrada = np.empty(capacidad, np.int64)
+    kernel = np.empty(capacidad, np.int8)
+    coeficiente = np.empty(capacidad, np.float32)
+    inicio_x = np.empty(9, np.int64)
+    longitud_x = np.empty(9, np.int64)
+    solapa_x = np.empty(9, np.bool_)
+    inicio_y = np.empty(9, np.int64)
+    longitud_y = np.empty(9, np.int64)
+    solapa_y = np.empty(9, np.bool_)
+    inicio_z = np.empty(9, np.int64)
+    longitud_z = np.empty(9, np.int64)
+    solapa_z = np.empty(9, np.bool_)
+    total = 0
+    for indice_kernel in range(27):
+        dx = indice_kernel // 9 - 1
+        dy = (indice_kernel // 3) % 3 - 1
+        dz = indice_kernel % 3 - 1
+        for codigo_salida in range(4):
+            tamano_salida = 1 << codigo_salida
+            if indice_kernel == 13:
+                for hoja in range(n_hojas):
+                    if tamanos[hoja] != tamano_salida:
+                        continue
+                    if total == capacidad:
+                        salida, entrada, kernel, coeficiente, capacidad = (
+                            _ampliar_aristas(
+                                salida, entrada, kernel, coeficiente, total,
+                            )
+                        )
+                    salida[total] = hoja
+                    entrada[total] = hoja
+                    kernel[total] = 13
+                    coeficiente[total] = 1.0
+                    total += 1
+                continue
+            volumen_salida = float(tamano_salida ** 3)
+            for codigo_entrada in range(4):
+                tamano_entrada = 1 << codigo_entrada
+                for hoja in range(n_hojas):
+                    if tamanos[hoja] != tamano_salida:
+                        continue
+                    n_x = _celdas_por_eje(
+                        origenes[hoja, 0], dx, tamano_salida, tamano_entrada,
+                        resolucion, inicio_x, longitud_x, solapa_x,
+                    )
+                    n_y = _celdas_por_eje(
+                        origenes[hoja, 1], dy, tamano_salida, tamano_entrada,
+                        resolucion, inicio_y, longitud_y, solapa_y,
+                    )
+                    n_z = _celdas_por_eje(
+                        origenes[hoja, 2], dz, tamano_salida, tamano_entrada,
+                        resolucion, inicio_z, longitud_z, solapa_z,
+                    )
+                    for a in range(n_x):
+                        for b in range(n_y):
+                            for c in range(n_z):
+                                if (solapa_x[a] and solapa_y[b] and solapa_z[c]
+                                        and tamano_entrada != tamano_salida):
+                                    continue
+                                clave = ((
+                                    (codigo_entrada * resolucion + inicio_x[a])
+                                    * resolucion + inicio_y[b]
+                                ) * resolucion + inicio_z[c])
+                                posicion = np.searchsorted(
+                                    claves_ordenadas, clave,
+                                )
+                                if (posicion >= n_hojas
+                                        or claves_ordenadas[posicion] != clave):
+                                    continue
+                                if total == capacidad:
+                                    (salida, entrada, kernel, coeficiente,
+                                     capacidad) = _ampliar_aristas(
+                                        salida, entrada, kernel, coeficiente,
+                                        total,
+                                    )
+                                volumen = (longitud_x[a] * longitud_y[b]
+                                           * longitud_z[c])
+                                salida[total] = hoja
+                                entrada[total] = orden_claves[posicion]
+                                kernel[total] = indice_kernel
+                                coeficiente[total] = np.float32(
+                                    volumen / volumen_salida
+                                )
+                                total += 1
+    return salida[:total], entrada[:total], kernel[:total], coeficiente[:total]
+
+
+if njit is not None:
+    _celdas_por_eje = njit(cache=True)(_celdas_por_eje)
+    _ampliar_aristas = njit(cache=True)(_ampliar_aristas)
+    _aristas_convolucion = njit(cache=True)(_aristas_convolucion)
+    BACKEND_PLAN_CONVOLUCION = "numba"
+else:  # pragma: no cover - depende del entorno
+    BACKEND_PLAN_CONVOLUCION = "numpy"
+
+
+def _construir_plan_convolucion_numba(
+    geometria: GeometriaGridOctree,
+) -> PlanConvolucion:
+    """Version compilada del plan de convolucion (requiere numba)."""
+
+    if njit is None:
+        raise RuntimeError("numba no esta instalado")
+    resolucion = int(geometria.resolucion)
+    origenes = np.ascontiguousarray(geometria.origenes, dtype=np.int64)
+    tamanos = np.ascontiguousarray(geometria.tamanos, dtype=np.int64)
+    codigos = np.zeros(len(tamanos), dtype=np.int64)
+    for codigo, tamano in enumerate((1, 2, 4, 8)):
+        codigos[tamanos == tamano] = codigo
+    claves_hoja = (
+        (codigos * resolucion + origenes[:, 0]) * resolucion + origenes[:, 1]
+    ) * resolucion + origenes[:, 2]
+    orden_claves = np.argsort(claves_hoja)
+    claves_ordenadas = claves_hoja[orden_claves]
+    salida, entrada, kernel, coeficiente = (
+        np.ascontiguousarray(arreglo)
+        for arreglo in _aristas_convolucion(
+            origenes, tamanos, resolucion, claves_ordenadas, orden_claves,
+        )
+    )
+    offsets_kernel = np.concatenate([
+        np.asarray([0], dtype=np.int64),
+        np.cumsum(np.bincount(kernel, minlength=27), dtype=np.int64),
+    ])
+    return PlanConvolucion(
+        salida=salida,
+        entrada=entrada,
+        kernel=kernel,
+        coeficiente=coeficiente,
         offsets_kernel=offsets_kernel,
     )
 

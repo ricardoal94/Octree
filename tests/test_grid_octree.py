@@ -6,6 +6,7 @@ from itertools import product
 import numpy as np
 import pytest
 
+import grid_octree
 from cuantizacion import cuantizar_indices_octree
 from grid_octree import (
     construir_plan_convolucion,
@@ -322,11 +323,19 @@ def _plan_convolucion_referencia(geometria):
     }
 
 
+@pytest.mark.parametrize("backend", ["publico", "numpy", "numba"])
 @pytest.mark.parametrize("nube", ["controlada", "densa"])
 @pytest.mark.parametrize("resolucion,profundidad", [(32, 5), (64, 6)])
 def test_plan_convolucion_identico_a_enumeracion_exhaustiva(
-    nube, resolucion, profundidad,
+    backend, nube, resolucion, profundidad,
 ):
+    if backend == "numba":
+        pytest.importorskip("numba")
+    construir = {
+        "publico": construir_plan_convolucion,
+        "numpy": grid_octree._construir_plan_convolucion_numpy,
+        "numba": grid_octree._construir_plan_convolucion_numba,
+    }[backend]
     puntos, normales = (
         _nube_controlada() if nube == "controlada" else _nube_densa()
     )
@@ -337,7 +346,7 @@ def test_plan_convolucion_identico_a_enumeracion_exhaustiva(
     assert set(np.unique(geometria.tamanos)) == {1, 2, 4, 8}
 
     while geometria.resolucion > 8:
-        plan = construir_plan_convolucion(geometria)
+        plan = construir(geometria)
         esperado = _plan_convolucion_referencia(geometria)
         for campo, valor in esperado.items():
             obtenido = getattr(plan, campo)
