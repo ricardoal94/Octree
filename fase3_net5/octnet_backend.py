@@ -255,6 +255,28 @@ class LoteGridOctree:
                 )
         return self._cache[clave]
 
+    def plan_convolucion_fusionado_torch(self) -> tuple:
+        """Plan para aplicar los 27 kernels con una sola proyeccion.
+
+        Devuelve ``(salida, fila_proyeccion, coeficiente)``. La convolucion
+        proyecta cada hoja con los 27 kernels a la vez, ``Z = X @ W``, y la
+        arista ``e`` toma la fila ``entrada[e] * 27 + kernel[e]`` de ``Z``.
+        """
+
+        dispositivo = self.atributos.device
+        clave = ("conv_fusion", dispositivo.type, dispositivo.index)
+        if clave not in self._cache:
+            salida, entrada, coeficiente, offsets = self.plan_convolucion_torch()
+            conteos = torch.as_tensor(
+                np.diff(np.asarray(offsets, dtype=np.int64)),
+                device=dispositivo,
+            )
+            kernel = torch.repeat_interleave(
+                torch.arange(27, device=dispositivo), conteos,
+            )
+            self._cache[clave] = (salida, entrada * 27 + kernel, coeficiente)
+        return self._cache[clave]
+
     def max_pool2(self) -> "LoteGridOctree":
         t0 = time.perf_counter() if self._perfil is not None else None
         planes = tuple(geometria.plan_pooling for geometria in self.geometrias)
@@ -387,8 +409,8 @@ class ConvolucionOctree3x3(nn.Module):
                 f"Se esperaban {self.canales_entrada} canales y llegaron "
                 f"{lote.atributos.shape[1]}"
             )
-        salida_idx, entrada_idx, coeficiente, offsets_kernel = (
-            lote.plan_convolucion_torch()
+        salida_idx, fila_proyeccion, coeficiente = (
+            lote.plan_convolucion_fusionado_torch()
         )
         n_hojas = lote.atributos.shape[0]
         if self.bias is None:
@@ -396,19 +418,19 @@ class ConvolucionOctree3x3(nn.Module):
         else:
             salida = self.bias.unsqueeze(0).expand(n_hojas, -1).clone()
 
+        # (C_out, C_in, 27) -> (C_in, 27 * C_out): la columna k * C_out + o
+        # corresponde al kernel k y al canal de salida o.
         pesos = self.weight.reshape(
             self.canales_salida, self.canales_entrada, 27,
+        ).permute(1, 2, 0).reshape(self.canales_entrada, -1)
+        proyeccion = (lote.atributos @ pesos).view(
+            n_hojas * 27, self.canales_salida,
         )
-        for indice_kernel in range(27):
-            inicio = int(offsets_kernel[indice_kernel])
-            fin = int(offsets_kernel[indice_kernel + 1])
-            indices_entrada = entrada_idx[inicio:fin]
-            contribucion = (
-                lote.atributos.index_select(0, indices_entrada)
-                @ pesos[:, :, indice_kernel].transpose(0, 1)
-            )
-            contribucion = contribucion * coeficiente[inicio:fin, None]
-            salida.index_add_(0, salida_idx[inicio:fin], contribucion)
+        contribucion = (
+            proyeccion.index_select(0, fila_proyeccion)
+            * coeficiente[:, None]
+        )
+        salida.index_add_(0, salida_idx, contribucion)
         return lote.con_atributos(salida)
 
 

@@ -14,7 +14,7 @@ torch = pytest.importorskip("torch", reason="El backend nativo requiere PyTorch"
 import net5_dataset_octree
 from grid_octree import convertir_a_grid_octree, precalcular_planes_net5
 from net5_modelo import Net5Octree
-from octnet_backend import LoteGridOctree
+from octnet_backend import ConvolucionOctree3x3, LoteGridOctree
 from octree_real import construir_octree
 from torch import nn
 
@@ -172,3 +172,50 @@ def test_ensamble_multimuestra_conserva_primera_prediccion():
 
     assert logits_dos.shape == (2, 40)
     assert torch.allclose(logits_uno[0], logits_dos[0], atol=1e-6)
+
+
+def _convolucion_por_kernel(capa, lote):
+    """Referencia: aplica los 27 kernels uno a uno, como la version previa."""
+
+    salida_idx, entrada_idx, coeficiente, offsets_kernel = (
+        lote.plan_convolucion_torch()
+    )
+    n_hojas = lote.atributos.shape[0]
+    salida = capa.bias.unsqueeze(0).expand(n_hojas, -1).clone()
+    pesos = capa.weight.reshape(capa.canales_salida, capa.canales_entrada, 27)
+    for kernel in range(27):
+        inicio = int(offsets_kernel[kernel])
+        fin = int(offsets_kernel[kernel + 1])
+        contribucion = (
+            lote.atributos.index_select(0, entrada_idx[inicio:fin])
+            @ pesos[:, :, kernel].transpose(0, 1)
+        ) * coeficiente[inicio:fin, None]
+        salida.index_add_(0, salida_idx[inicio:fin], contribucion)
+    return salida
+
+
+@pytest.mark.parametrize("resolucion,batch_size", [(32, 1), (32, 3), (64, 2)])
+def test_convolucion_fusionada_equivale_a_kernel_por_kernel(
+    resolucion, batch_size,
+):
+    torch.manual_seed(11)
+    lote = _lote_sintetico(resolucion, batch_size=batch_size)
+    entrada = torch.randn(lote.atributos.shape[0], 5, dtype=torch.float64)
+    capa = ConvolucionOctree3x3(5, 7).double()
+    nn.init.normal_(capa.bias)
+
+    x_fusion = entrada.clone().requires_grad_()
+    obtenida = capa(lote.con_atributos(x_fusion)).atributos
+    x_ref = entrada.clone().requires_grad_()
+    esperada = _convolucion_por_kernel(capa, lote.con_atributos(x_ref))
+    torch.testing.assert_close(obtenida, esperada, rtol=1e-12, atol=1e-12)
+
+    salida_grad = torch.randn_like(esperada)
+    grads_fusion = torch.autograd.grad(
+        obtenida, (x_fusion, capa.weight, capa.bias), salida_grad,
+    )
+    grads_ref = torch.autograd.grad(
+        esperada, (x_ref, capa.weight, capa.bias), salida_grad,
+    )
+    for g_fusion, g_ref in zip(grads_fusion, grads_ref):
+        torch.testing.assert_close(g_fusion, g_ref, rtol=1e-12, atol=1e-12)
