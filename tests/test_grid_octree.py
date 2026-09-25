@@ -1,12 +1,17 @@
 """Pruebas geometricas del backend OctNet sin dependencia de PyTorch."""
 
 import pickle
+from itertools import product
 
 import numpy as np
 import pytest
 
 from cuantizacion import cuantizar_indices_octree
-from grid_octree import convertir_a_grid_octree, precalcular_planes_net5
+from grid_octree import (
+    construir_plan_convolucion,
+    convertir_a_grid_octree,
+    precalcular_planes_net5,
+)
 from octree_real import construir_octree
 
 
@@ -195,3 +200,147 @@ def test_planes_precalculados_sobreviven_transferencia_entre_procesos():
         "plan_convolucion"
         in restaurada.plan_pooling.geometria_salida.__dict__
     )
+
+
+def _nube_densa(n_puntos: int = 3000, semilla: int = 3):
+    """Superficie esferica con hojas de todas las aristas (1, 2, 4 y 8)."""
+
+    rng = np.random.default_rng(semilla)
+    normales = rng.normal(size=(n_puntos, 3)).astype(np.float32)
+    normales /= np.linalg.norm(normales, axis=1, keepdims=True)
+    return (0.85 * normales).astype(np.float32), normales
+
+
+def _plan_convolucion_referencia(geometria):
+    """Algoritmo original de enumeracion exhaustiva de candidatos.
+
+    Se conserva aqui como referencia: el plan optimizado debe producir
+    exactamente las mismas aristas, coeficientes y orden.
+    """
+
+    bloques_salida, bloques_entrada = [], []
+    bloques_kernel, bloques_coeficiente = [], []
+    resolucion = geometria.resolucion
+    origenes = geometria.origenes.astype(np.int64, copy=False)
+    tamanos = geometria.tamanos.astype(np.int64, copy=False)
+    codigo_tamano = {1: 0, 2: 1, 4: 2, 8: 3}
+
+    def codificar(cajas, tamano):
+        codigo = codigo_tamano[tamano]
+        return (
+            ((codigo * resolucion + cajas[:, 0]) * resolucion + cajas[:, 1])
+            * resolucion
+            + cajas[:, 2]
+        )
+
+    claves_hoja = np.empty(geometria.n_hojas, dtype=np.int64)
+    for tamano in (1, 2, 4, 8):
+        mascara = tamanos == tamano
+        claves_hoja[mascara] = codificar(origenes[mascara], tamano)
+    orden_claves = np.argsort(claves_hoja)
+    claves_ordenadas = claves_hoja[orden_claves]
+
+    for tamano_salida in (1, 2, 4, 8):
+        indices_salida = np.flatnonzero(tamanos == tamano_salida)
+        if len(indices_salida) == 0:
+            continue
+        origen_salida = origenes[indices_salida]
+        volumen_salida = float(tamano_salida ** 3)
+        for kx, ky, kz in product(range(3), repeat=3):
+            indice_kernel = kx * 9 + ky * 3 + kz
+            if indice_kernel == 13:
+                bloques_salida.append(indices_salida)
+                bloques_entrada.append(indices_salida)
+                bloques_kernel.append(np.full(
+                    len(indices_salida), indice_kernel, dtype=np.int8,
+                ))
+                bloques_coeficiente.append(np.ones(
+                    len(indices_salida), dtype=np.float32,
+                ))
+                continue
+            inferior = origen_salida + np.asarray(
+                [kx - 1, ky - 1, kz - 1], dtype=np.int64,
+            )
+            superior = inferior + tamano_salida
+            for tamano_entrada in (1, 2, 4, 8):
+                inicio = (
+                    np.floor_divide(inferior, tamano_entrada) * tamano_entrada
+                )
+                n_eje = (
+                    (tamano_salida + tamano_entrada - 1) // tamano_entrada + 1
+                )
+                offsets = np.asarray(
+                    list(product(range(n_eje), repeat=3)), dtype=np.int64,
+                ) * tamano_entrada
+                candidatos = inicio[:, None, :] + offsets[None, :, :]
+                longitudes = (
+                    np.minimum(superior[:, None, :],
+                               candidatos + tamano_entrada)
+                    - np.maximum(inferior[:, None, :], candidatos)
+                )
+                validos = (
+                    np.all(longitudes > 0, axis=2)
+                    & np.all(candidatos >= 0, axis=2)
+                    & np.all(candidatos + tamano_entrada <= resolucion, axis=2)
+                )
+                if not np.any(validos):
+                    continue
+                filas, columnas = np.nonzero(validos)
+                claves = codificar(candidatos[filas, columnas], tamano_entrada)
+                posiciones = np.searchsorted(claves_ordenadas, claves)
+                seguras = np.minimum(posiciones, len(claves_ordenadas) - 1)
+                existen = claves_ordenadas[seguras] == claves
+                if not np.any(existen):
+                    continue
+                filas = filas[existen]
+                columnas = columnas[existen]
+                volumenes = np.prod(
+                    longitudes[filas, columnas], axis=1, dtype=np.int64,
+                )
+                bloques_salida.append(indices_salida[filas])
+                bloques_entrada.append(orden_claves[posiciones[existen]])
+                bloques_kernel.append(np.full(
+                    len(filas), indice_kernel, dtype=np.int8,
+                ))
+                bloques_coeficiente.append(
+                    (volumenes / volumen_salida).astype(np.float32)
+                )
+
+    kernel = np.concatenate(bloques_kernel)
+    orden = np.argsort(kernel, kind="stable")
+    kernel = kernel[orden]
+    offsets_kernel = np.concatenate([
+        np.asarray([0], dtype=np.int64),
+        np.cumsum(np.bincount(kernel, minlength=27), dtype=np.int64),
+    ])
+    return {
+        "salida": np.concatenate(bloques_salida).astype(np.int64)[orden],
+        "entrada": np.concatenate(bloques_entrada).astype(np.int64)[orden],
+        "kernel": kernel,
+        "coeficiente": np.concatenate(bloques_coeficiente)[orden],
+        "offsets_kernel": offsets_kernel,
+    }
+
+
+@pytest.mark.parametrize("nube", ["controlada", "densa"])
+@pytest.mark.parametrize("resolucion,profundidad", [(32, 5), (64, 6)])
+def test_plan_convolucion_identico_a_enumeracion_exhaustiva(
+    nube, resolucion, profundidad,
+):
+    puntos, normales = (
+        _nube_controlada() if nube == "controlada" else _nube_densa()
+    )
+    geometria = convertir_a_grid_octree(
+        construir_octree(puntos, normales, profundidad_max=profundidad),
+        resolucion,
+    ).geometria
+    assert set(np.unique(geometria.tamanos)) == {1, 2, 4, 8}
+
+    while geometria.resolucion > 8:
+        plan = construir_plan_convolucion(geometria)
+        esperado = _plan_convolucion_referencia(geometria)
+        for campo, valor in esperado.items():
+            obtenido = getattr(plan, campo)
+            assert obtenido.dtype == valor.dtype, campo
+            np.testing.assert_array_equal(obtenido, valor, err_msg=campo)
+        geometria = geometria.plan_pooling.geometria_salida

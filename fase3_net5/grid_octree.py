@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from itertools import product
+from itertools import combinations, product
 
 import numpy as np
 
@@ -339,119 +339,184 @@ def convertir_a_grid_octree(raiz, resolucion: int) -> MuestraGridOctree:
     )
 
 
-def construir_plan_convolucion(geometria: GeometriaGridOctree) -> PlanConvolucion:
-    """Construye el stencil disperso exacto de una convolucion 3x3x3."""
+_DESPLAZAMIENTOS_KERNEL = np.asarray(
+    [(kx - 1, ky - 1, kz - 1) for kx, ky, kz in product(range(3), repeat=3)],
+    dtype=np.int64,
+)
+_KERNELS_NO_CENTRALES = np.asarray(
+    [kernel for kernel in range(27) if kernel != 13], dtype=np.int64,
+)
+# Subconjuntos no vacios de ejes cuyo candidato queda fuera de la hoja.
+_PATRONES_EXTERIORES = tuple(
+    frozenset(ejes) for k in range(1, 4) for ejes in combinations(range(3), k)
+)
 
-    bloques_salida: list[np.ndarray] = []
-    bloques_entrada: list[np.ndarray] = []
-    bloques_kernel: list[np.ndarray] = []
-    bloques_coeficiente: list[np.ndarray] = []
+
+def construir_plan_convolucion(geometria: GeometriaGridOctree) -> PlanConvolucion:
+    """Construye el stencil disperso exacto de una convolucion 3x3x3.
+
+    Para cada hoja de salida y cada desplazamiento del kernel se buscan las
+    hojas de entrada que intersecan la caja desplazada. Como las hojas forman
+    una particion, una celda candidata que se solapa con la hoja de salida
+    solo puede ser la propia hoja. Por eso, en cada eje se distinguen las
+    celdas interiores (solapan la hoja) de la unica celda exterior posible (la
+    franja de un voxel en la direccion del desplazamiento), y solo se evaluan
+    combinaciones con al menos un eje exterior, mas la propia hoja cuando las
+    aristas coinciden. Los 26 kernels no centrales se procesan juntos.
+
+    El orden de las aristas es: kernel, arista de salida, arista de entrada,
+    hoja de salida y coordenadas ``(x, y, z)`` de la hoja de entrada.
+    """
+
     resolucion = geometria.resolucion
     origenes = geometria.origenes.astype(np.int64, copy=False)
     tamanos = geometria.tamanos.astype(np.int64, copy=False)
     codigo_tamano = {1: 0, 2: 1, 4: 2, 8: 3}
 
-    def codificar(cajas: np.ndarray, tamano: int) -> np.ndarray:
+    def codificar(x: np.ndarray, y: np.ndarray, z: np.ndarray,
+                  tamano: int) -> np.ndarray:
         codigo = codigo_tamano[tamano]
-        return (
-            ((codigo * resolucion + cajas[:, 0]) * resolucion + cajas[:, 1])
-            * resolucion
-            + cajas[:, 2]
-        )
+        return ((codigo * resolucion + x) * resolucion + y) * resolucion + z
 
     claves_hoja = np.empty(geometria.n_hojas, dtype=np.int64)
     for tamano in (1, 2, 4, 8):
         mascara = tamanos == tamano
-        claves_hoja[mascara] = codificar(origenes[mascara], tamano)
+        claves_hoja[mascara] = codificar(*origenes[mascara].T, tamano)
     orden_claves = np.argsort(claves_hoja)
     claves_ordenadas = claves_hoja[orden_claves]
 
+    # Columnas: kernel, arista_salida, arista_entrada, salida, x, y, z,
+    # entrada, coeficiente.
+    todas = np.arange(geometria.n_hojas, dtype=np.int64)
+    partes = [(
+        np.full(geometria.n_hojas, 13, dtype=np.int64), tamanos, tamanos,
+        todas, origenes[:, 0], origenes[:, 1], origenes[:, 2],
+        todas, np.ones(geometria.n_hojas, dtype=np.float32),
+    )]
+
     for tamano_salida in (1, 2, 4, 8):
         indices_salida = np.flatnonzero(tamanos == tamano_salida)
-        if len(indices_salida) == 0:
+        n_salida = len(indices_salida)
+        if n_salida == 0:
             continue
-        origen_salida = origenes[indices_salida]
+        kernel_fila = np.repeat(_KERNELS_NO_CENTRALES, n_salida)
+        hoja_fila = np.tile(indices_salida, len(_KERNELS_NO_CENTRALES))
+        origen_fila = origenes[hoja_fila]
+        desplazamiento_fila = _DESPLAZAMIENTOS_KERNEL[kernel_fila]
         volumen_salida = float(tamano_salida ** 3)
 
-        for kx, ky, kz in product(range(3), repeat=3):
-            indice_kernel = kx * 9 + ky * 3 + kz
-            if indice_kernel == 13:
-                bloques_salida.append(indices_salida)
-                bloques_entrada.append(indices_salida)
-                bloques_kernel.append(np.full(
-                    len(indices_salida), indice_kernel, dtype=np.int8,
+        for tamano_entrada in (1, 2, 4, 8):
+            ejes = []
+            for eje in range(3):
+                origen = origen_fila[:, eje]
+                desplazamiento = desplazamiento_fila[:, eje]
+                inferior = origen + desplazamiento
+                superior = inferior + tamano_salida
+                if tamano_entrada <= tamano_salida:
+                    inicio_interior = origen[:, None] + np.arange(
+                        tamano_salida // tamano_entrada, dtype=np.int64,
+                    ) * tamano_entrada
+                else:
+                    inicio_interior = (
+                        origen // tamano_entrada * tamano_entrada
+                    )[:, None]
+                longitud_interior = (
+                    np.minimum(superior[:, None],
+                               inicio_interior + tamano_entrada)
+                    - np.maximum(inferior[:, None], inicio_interior)
+                )
+                inicio_exterior = np.where(
+                    desplazamiento < 0,
+                    (origen - 1) // tamano_entrada * tamano_entrada,
+                    (origen + tamano_salida) // tamano_entrada * tamano_entrada,
+                )
+                toca_hoja = (
+                    np.minimum(origen + tamano_salida,
+                               inicio_exterior + tamano_entrada)
+                    - np.maximum(origen, inicio_exterior)
+                ) > 0
+                longitud_exterior = (
+                    np.minimum(superior, inicio_exterior + tamano_entrada)
+                    - np.maximum(inferior, inicio_exterior)
+                )
+                exterior_valido = (
+                    (desplazamiento != 0)
+                    & ~toca_hoja
+                    & (inicio_exterior >= 0)
+                    & (inicio_exterior + tamano_entrada <= resolucion)
+                    & (longitud_exterior > 0)
+                )
+                ejes.append((
+                    (inicio_interior, longitud_interior, longitud_interior > 0),
+                    (inicio_exterior[:, None], longitud_exterior[:, None],
+                     exterior_valido[:, None]),
                 ))
-                bloques_coeficiente.append(np.ones(
-                    len(indices_salida), dtype=np.float32,
+
+            patrones = list(_PATRONES_EXTERIORES)
+            if tamano_entrada == tamano_salida:
+                patrones.append(frozenset())  # la propia hoja de salida
+
+            trozos = []
+            for patron in patrones:
+                (inicio_x, longitud_x, valido_x), \
+                    (inicio_y, longitud_y, valido_y), \
+                    (inicio_z, longitud_z, valido_z) = (
+                        ejes[eje][1] if eje in patron else ejes[eje][0]
+                        for eje in range(3)
+                    )
+                validos = (
+                    valido_x[:, :, None, None]
+                    & valido_y[:, None, :, None]
+                    & valido_z[:, None, None, :]
+                )
+                filas, i, j, k = np.nonzero(validos)
+                if len(filas) == 0:
+                    continue
+                trozos.append((
+                    filas,
+                    inicio_x[filas, i], inicio_y[filas, j], inicio_z[filas, k],
+                    longitud_x[filas, i] * longitud_y[filas, j]
+                    * longitud_z[filas, k],
                 ))
+            if not trozos:
                 continue
 
-            inferior = origen_salida + np.asarray(
-                [kx - 1, ky - 1, kz - 1], dtype=np.int64,
+            filas, x, y, z, volumenes = (
+                np.concatenate(columna) for columna in zip(*trozos)
             )
-            superior = inferior + tamano_salida
+            claves = codificar(x, y, z, tamano_entrada)
+            posiciones = np.searchsorted(claves_ordenadas, claves)
+            posiciones_seguras = np.minimum(
+                posiciones, len(claves_ordenadas) - 1,
+            )
+            existen = claves_ordenadas[posiciones_seguras] == claves
+            if not np.any(existen):
+                continue
 
-            for tamano_entrada in (1, 2, 4, 8):
-                inicio = np.floor_divide(inferior, tamano_entrada) * tamano_entrada
-                n_eje = (tamano_salida + tamano_entrada - 1) // tamano_entrada + 1
-                offsets = np.asarray(
-                    list(product(range(n_eje), repeat=3)), dtype=np.int64,
-                ) * tamano_entrada
-                candidatos = inicio[:, None, :] + offsets[None, :, :]
-                longitudes = (
-                    np.minimum(superior[:, None, :], candidatos + tamano_entrada)
-                    - np.maximum(inferior[:, None, :], candidatos)
-                )
-                validos = (
-                    np.all(longitudes > 0, axis=2)
-                    & np.all(candidatos >= 0, axis=2)
-                    & np.all(candidatos + tamano_entrada <= resolucion, axis=2)
-                )
-                if not np.any(validos):
-                    continue
+            filas = filas[existen]
+            n_aristas = len(filas)
+            partes.append((
+                kernel_fila[filas],
+                np.full(n_aristas, tamano_salida, dtype=np.int64),
+                np.full(n_aristas, tamano_entrada, dtype=np.int64),
+                hoja_fila[filas],
+                x[existen], y[existen], z[existen],
+                orden_claves[posiciones[existen]],
+                (volumenes[existen] / volumen_salida).astype(np.float32),
+            ))
 
-                filas, columnas = np.nonzero(validos)
-                cajas = candidatos[filas, columnas]
-                claves = codificar(cajas, tamano_entrada)
-                posiciones = np.searchsorted(claves_ordenadas, claves)
-                existen = posiciones < len(claves_ordenadas)
-                if np.any(existen):
-                    posiciones_seguras = np.minimum(
-                        posiciones, len(claves_ordenadas) - 1,
-                    )
-                    existen &= claves_ordenadas[posiciones_seguras] == claves
-                if not np.any(existen):
-                    continue
-
-                filas = filas[existen]
-                columnas = columnas[existen]
-                posiciones = posiciones[existen]
-                volumenes = np.prod(
-                    longitudes[filas, columnas], axis=1, dtype=np.int64,
-                )
-                bloques_salida.append(indices_salida[filas])
-                bloques_entrada.append(orden_claves[posiciones])
-                bloques_kernel.append(np.full(
-                    len(filas), indice_kernel, dtype=np.int8,
-                ))
-                bloques_coeficiente.append(
-                    (volumenes / volumen_salida).astype(np.float32)
-                )
-
-    salida = np.concatenate(bloques_salida).astype(np.int64, copy=False)
-    entrada = np.concatenate(bloques_entrada).astype(np.int64, copy=False)
-    kernel = np.concatenate(bloques_kernel)
-    coeficiente = np.concatenate(bloques_coeficiente)
-    orden = np.argsort(kernel, kind="stable")
-    kernel = kernel[orden]
+    (kernel, tamano_salida, tamano_entrada, salida, x, y, z, entrada,
+     coeficiente) = (np.concatenate(columna) for columna in zip(*partes))
+    orden = np.lexsort((z, y, x, salida, tamano_entrada, tamano_salida, kernel))
+    kernel = kernel[orden].astype(np.int8)
     conteos = np.bincount(kernel, minlength=27)
     offsets_kernel = np.concatenate([
         np.asarray([0], dtype=np.int64),
         np.cumsum(conteos, dtype=np.int64),
     ])
     return PlanConvolucion(
-        salida=salida[orden],
-        entrada=entrada[orden],
+        salida=salida[orden].astype(np.int64, copy=False),
+        entrada=entrada[orden].astype(np.int64, copy=False),
         kernel=kernel,
         coeficiente=coeficiente[orden],
         offsets_kernel=offsets_kernel,
