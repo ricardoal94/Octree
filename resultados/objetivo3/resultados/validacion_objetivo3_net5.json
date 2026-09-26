@@ -1,0 +1,71 @@
+{
+  "schema_name": "net5-objective3-validation",
+  "schema_version": "1.0.0",
+  "generado_utc": "2026-09-26T00:41:39.032077+00:00",
+  "estado": "VALIDADO",
+  "validacion_completa": true,
+  "resoluciones": [
+    32,
+    64
+  ],
+  "validaciones": [
+    {
+      "resolucion": 32,
+      "archivo": "resumen_net5_octree_R32.json",
+      "valido": true,
+      "errores": []
+    },
+    {
+      "resolucion": 64,
+      "archivo": "resumen_net5_octree_R64.json",
+      "valido": true,
+      "errores": []
+    }
+  ],
+  "errores_conjunto": [],
+  "barrido_workers": {
+    "git_commit": "8164428f30ee997e31fa690d59a81bc7ad12beb2",
+    "seleccion_workers": {
+      "32": 8,
+      "64": 8
+    }
+  },
+  "resultados": [
+    {
+      "resolucion": 32,
+      "git_commit": "8164428f30ee997e31fa690d59a81bc7ad12beb2",
+      "num_workers": 8,
+      "epocas_completadas": 45,
+      "mejor_epoca": 25,
+      "mejor_val_acc": 0.847716,
+      "test_acc": 0.822123,
+      "test_loss": 0.998385,
+      "tiempo_total_min": 173.31,
+      "forward_ms_por_muestra": 8.2915,
+      "pipeline_ms_por_muestra": 15.4901,
+      "vram_pico_mb": 793.2,
+      "tamano_modelo_mb": 34.2,
+      "gpu_nombre": "NVIDIA GeForce RTX 5070",
+      "pytorch_version": "2.11.0+cu128",
+      "cuda_version": "12.8"
+    },
+    {
+      "resolucion": 64,
+      "git_commit": "8164428f30ee997e31fa690d59a81bc7ad12beb2",
+      "num_workers": 8,
+      "epocas_completadas": 39,
+      "mejor_epoca": 19,
+      "mejor_val_acc": 0.854822,
+      "test_acc": 0.832253,
+      "test_loss": 0.756059,
+      "tiempo_total_min": 476.86,
+      "forward_ms_por_muestra": 15.0345,
+      "pipeline_ms_por_muestra": 64.5492,
+      "vram_pico_mb": 2524.4,
+      "tamano_modelo_mb": 34.2,
+      "gpu_nombre": "NVIDIA GeForce RTX 5070",
+      "pytorch_version": "2.11.0+cu128",
+      "cuda_version": "12.8"
+    }
+  ]
+}
