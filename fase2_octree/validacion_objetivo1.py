@@ -41,6 +41,21 @@ MANIFEST_FORMAT_VERSION = "1.0.0"
 SEED_ALGORITHM = "sha256_ruta_relativa_u32_mas_semilla_base"
 
 
+def ruta_portable(ruta: str | Path, raiz_proyecto: str | Path) -> str:
+    """Registra rutas sin depender de la ubicacion local del repositorio.
+
+    Las rutas contenidas en el proyecto se guardan relativas a su raiz. Si el
+    dataset o la salida estan fuera del clon, solo se conserva el nombre del
+    archivo o directorio para evitar rutas absolutas especificas del equipo.
+    """
+    ruta_resuelta = Path(ruta).resolve()
+    raiz_resuelta = Path(raiz_proyecto).resolve()
+    try:
+        return ruta_resuelta.relative_to(raiz_resuelta).as_posix()
+    except ValueError:
+        return ruta_resuelta.name
+
+
 def sha256_archivo(ruta: str | Path, bloque: int = 1024 * 1024) -> str:
     """Calcula SHA-256 sin cargar el archivo completo en memoria."""
     digest = hashlib.sha256()

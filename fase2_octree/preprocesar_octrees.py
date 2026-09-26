@@ -46,6 +46,7 @@ from validacion_objetivo1 import (  # noqa: E402
     guardar_json_atomico,
     manifiesto_base,
     metricas_estructura,
+    ruta_portable,
     semilla_estable_modelo,
     sha256_archivo,
     validar_equivalencia_denso_octree,
@@ -486,9 +487,8 @@ def main() -> int:
     resumen = {
         "octree_format_version": OCTREE_FORMAT_VERSION,
         "alcance_ejecucion": alcance,
-        # Guardan la ruta relativa al proyecto (ej. Dataset/ModelNet40 y data)
-        "dataset_root": dataset_root.resolve().relative_to(RAIZ_PROYECTO.resolve()).as_posix(),
-        "output_root": output_root.resolve().relative_to(RAIZ_PROYECTO.resolve()).as_posix(),
+        "dataset_root": ruta_portable(dataset_root, RAIZ_PROYECTO),
+        "output_root": ruta_portable(output_root, RAIZ_PROYECTO),
         "resoluciones": args.resoluciones,
         "n_puntos_muestreo": args.n_puntos,
         "semilla_base": args.semilla,
