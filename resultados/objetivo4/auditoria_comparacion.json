@@ -1,0 +1,90 @@
+{
+  "alcance": "Auditoria de registros; no reejecuta modelos ni valida identidad de muestras",
+  "fuentes_sha256": {
+    "resultados/objetivo2/resumen_hce_R32.json": "1566a876eeb4181941ede73090ca8b413383c0b00b9b2ec85f8337e8672efaca",
+    "resultados/objetivo3/resultados/resumen_net5_octree_R32.json": "78e004a0afc42c370e0777d7e274c706346959e42fac907aae13e43b485ac76d",
+    "resultados/objetivo2/resumen_hce_R64.json": "636f09e38ad305628317c35c57b9b60083013ab694a9e808df25ed688231d47c",
+    "resultados/objetivo3/resultados/resumen_net5_octree_R64.json": "a920db1c1766aa9fb7fca21fee34d086fb56c2861903017753ef71fe01bd4176"
+  },
+  "particion_sha256_net5": "b04d64dc37af6b63aef469ab58a16dc07205f22abae42e892bb43cdfb8991d3b",
+  "filas": [
+    {
+      "modelo": "SVM-HCE",
+      "resolucion": 32,
+      "n_test": 2468,
+      "aciertos": 1874,
+      "accuracy_pct": 75.931929,
+      "f1_macro_pct": 65.816413,
+      "inferencia_reportada_ms": 0.41799771341357855,
+      "alcance_tiempo": "predict sobre descriptores precalculados; CPU; lote completo",
+      "pipeline_ms": "",
+      "tamano_modelo_mb": 4.426473
+    },
+    {
+      "modelo": "RandomForest-HCE",
+      "resolucion": 32,
+      "n_test": 2468,
+      "aciertos": 1885,
+      "accuracy_pct": 76.377634,
+      "f1_macro_pct": 67.715713,
+      "inferencia_reportada_ms": 0.016011140721350473,
+      "alcance_tiempo": "predict sobre descriptores precalculados; CPU; lote completo",
+      "pipeline_ms": "",
+      "tamano_modelo_mb": 137.732249
+    },
+    {
+      "modelo": "Net5-Octree",
+      "resolucion": 32,
+      "n_test": 2468,
+      "aciertos": 2029,
+      "accuracy_pct": 82.212318,
+      "f1_macro_pct": 74.930275,
+      "inferencia_reportada_ms": 8.2915,
+      "alcance_tiempo": "forward incl. planes; GPU; batch=1",
+      "pipeline_ms": 15.4901,
+      "tamano_modelo_mb": 34.2
+    },
+    {
+      "modelo": "SVM-HCE",
+      "resolucion": 64,
+      "n_test": 2468,
+      "aciertos": 1905,
+      "accuracy_pct": 77.188006,
+      "f1_macro_pct": 68.471607,
+      "inferencia_reportada_ms": 0.40284567172948504,
+      "alcance_tiempo": "predict sobre descriptores precalculados; CPU; lote completo",
+      "pipeline_ms": "",
+      "tamano_modelo_mb": 4.393097
+    },
+    {
+      "modelo": "RandomForest-HCE",
+      "resolucion": 64,
+      "n_test": 2468,
+      "aciertos": 1905,
+      "accuracy_pct": 77.188006,
+      "f1_macro_pct": 68.529992,
+      "inferencia_reportada_ms": 0.016352732332251253,
+      "alcance_tiempo": "predict sobre descriptores precalculados; CPU; lote completo",
+      "pipeline_ms": "",
+      "tamano_modelo_mb": 137.152409
+    },
+    {
+      "modelo": "Net5-Octree",
+      "resolucion": 64,
+      "n_test": 2468,
+      "aciertos": 2054,
+      "accuracy_pct": 83.225284,
+      "f1_macro_pct": 77.229552,
+      "inferencia_reportada_ms": 15.0345,
+      "alcance_tiempo": "forward incl. planes; GPU; batch=1",
+      "pipeline_ms": 64.5492,
+      "tamano_modelo_mb": 34.2
+    }
+  ],
+  "limitaciones": [
+    "El manifiesto por ID y los checkpoints no estan versionados en el PR.",
+    "Coincidir en conteos, semilla y algoritmo no prueba identidad de todos los archivos de datos.",
+    "Los tiempos HCE y Net5 usan alcances, lotes y dispositivos distintos.",
+    "Una corrida por resolucion no cuantifica variacion entre semillas."
+  ]
+}
