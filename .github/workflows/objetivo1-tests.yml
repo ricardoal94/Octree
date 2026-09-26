@@ -25,3 +25,25 @@ jobs:
         run: python -m pip install -r requirements-objetivo2.txt
       - name: Ejecutar pruebas sin dataset ni GPU
         run: python -m pytest -m "not dataset and not gpu"
+
+  octnet-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias y backend CPU
+        run: |
+          python -m pip install -r requirements-objetivo2.txt "numba>=0.67.0"
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Verificar backend OctNet sin omitir PyTorch
+        env:
+          OMP_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+        run: |
+          python -c "import torch, numba"
+          python -m pytest -m "not dataset and not gpu"
+      - name: Auditar resultados publicados
+        run: python fase4_comparacion/comparar_resumenes.py
