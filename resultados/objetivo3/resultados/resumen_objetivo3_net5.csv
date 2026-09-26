@@ -1,0 +1,3 @@
+resolucion,git_commit,num_workers,epocas_completadas,mejor_epoca,mejor_val_acc,test_acc,test_loss,tiempo_total_min,forward_ms_por_muestra,pipeline_ms_por_muestra,vram_pico_mb,tamano_modelo_mb,gpu_nombre,pytorch_version,cuda_version
+32,8164428f30ee997e31fa690d59a81bc7ad12beb2,8,45,25,0.847716,0.822123,0.998385,173.31,8.2915,15.4901,793.2,34.2,NVIDIA GeForce RTX 5070,2.11.0+cu128,12.8
+64,8164428f30ee997e31fa690d59a81bc7ad12beb2,8,39,19,0.854822,0.832253,0.756059,476.86,15.0345,64.5492,2524.4,34.2,NVIDIA GeForce RTX 5070,2.11.0+cu128,12.8
