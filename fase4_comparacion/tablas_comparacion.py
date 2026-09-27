@@ -8,7 +8,7 @@ import csv
 import json
 from pathlib import Path
 
-CARPETA_DEFECTO = Path(__file__).resolve().parent.parent.parent / "Objetivos_4_y_5_comparacion"
+CARPETA_DEFECTO = Path(__file__).resolve().parent.parent / "resultados" / "Objetivos_4_y_5_comparacion"
 RES = CARPETA_DEFECTO / "resultados"
 TAB = CARPETA_DEFECTO / "tablas"
 
