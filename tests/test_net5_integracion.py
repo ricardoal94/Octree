@@ -142,8 +142,9 @@ def test_referencia_densa_tiene_capacidad_fija():
     assert modelo_32.contar_parametros() == modelo_64.contar_parametros()
 
 
-def test_constructor_oficial_no_suplanta_octnet():
-    from net5_modelo import crear_modelo
+def test_constructor_oficial_crea_octnet_nativo():
+    from net5_modelo import Net5Octree, crear_modelo
 
-    with pytest.raises(NotImplementedError, match="OctNet nativo"):
-        crear_modelo(resolucion=32)
+    modelo, _ = crear_modelo(resolucion=32, device=torch.device("cpu"))
+    assert isinstance(modelo, Net5Octree)
+    assert not any(isinstance(modulo, nn.Conv3d) for modulo in modelo.modules())
