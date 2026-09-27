@@ -1,0 +1,4 @@
+| Res. | Los 3 aciertan | 2 aciertan | 1 acierta | Ninguno | Solo Net5 acierta | Net5 falla y algún HCE acierta | Al menos uno acierta (%) |
+|---|---|---|---|---|---|---|---|
+| R32 | 1616 | 338 | 264 | 250 | 166 | 189 | 89.9 |
+| R64 | 1651 | 320 | 271 | 226 | 179 | 188 | 90.8 |

@@ -1,0 +1,8 @@
+| Método | Res. | Confusiones más frecuentes (real→predicha, n) |
+|---|---|---|
+| SVM | R32 | night_stand→dresser (21); bottle→vase (15); vase→bottle (15); table→desk (14) |
+| Bosque aleatorio | R32 | table→desk (21); dresser→night_stand (19); bathtub→bed (17); night_stand→dresser (17) |
+| Net5-Octree | R32 | table→desk (28); night_stand→dresser (26); dresser→night_stand (13); desk→table (12) |
+| SVM | R64 | table→desk (20); night_stand→dresser (18); bottle→vase (14); vase→bottle (14) |
+| Bosque aleatorio | R64 | night_stand→dresser (25); table→desk (20); bathtub→bed (12); bottle→vase (12) |
+| Net5-Octree | R64 | night_stand→dresser (21); dresser→night_stand (18); table→desk (17); plant→flower_pot (15) |
