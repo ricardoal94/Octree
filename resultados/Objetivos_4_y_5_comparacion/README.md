@@ -4,6 +4,8 @@ Evaluación de los tres métodos de clasificación de ModelNet40 (40 clases) sob
 
 Las métricas de clasificación se obtuvieron sobre los **2,468 objetos de test** de ModelNet40, con la **misma partición** para los tres métodos (verificada objeto por objeto).
 
+La [reevaluación del 27 de septiembre](../Objetivos_4_y_5_reevaluacion_2026-09-27/REEVALUACION.md) conserva las predicciones de los seis casos y aporta un registro de ejecución desde los octrees para Net5. Las tablas de este informe conservan las mediciones originales; la nueva ejecución tiene sus propias tablas.
+
 ## Resumen
 
 | | SVM | Bosque aleatorio | Net5-Octree |
@@ -60,6 +62,10 @@ python fase4_comparacion/auditar_comparacion.py --exigir-modelos
 python fase4_comparacion/tablas_comparacion.py
 python fase4_comparacion/figuras_comparacion.py
 ```
+
+**Windows y hashes:** `.gitattributes` fija LF para los archivos de evidencia textual. En una copia nueva esto evita que `core.autocrlf=true` cambie sus bytes. Para una copia existente, conservar primero cualquier cambio local y usar una copia nueva o una exportación `git archive` de la versión actual; una copia de trabajo antigua puede conservar CRLF. La auditoría sigue verificando los bytes exactos, sin normalizar ni omitir diferencias.
+
+**Alcance de la inferencia:** Net5 recorre los 2.468 octrees del test por resolución. SVM y Bosque Aleatorio usan `X_test` de las características publicadas para el test completo; en la etapa de tiempos se regeneran sus descriptores desde 400 octrees por resolución y se contrastan las predicciones. No se ha regenerado aquí el conjunto completo de características HCE.
 
 La evaluación reemplaza las salidas de la carpeta seleccionada. Para conservar los resultados oficiales, copiar primero la carpeta completa a una ubicación externa y pasar `--carpeta RUTA` a los cuatro programas. `--repo RUTA` en el evaluador permite seleccionar otra raíz que contenga el código y los octrees.
 
@@ -260,11 +266,11 @@ No hay un método que gane en todo. Net5 ocupa la zona de **mayor exactitud y ma
 |---|---|---|---|---|---|---|
 | SVM | +1.3 pts | +2.7 pts | Sí (p = 0.029) | ×3.7 (14 → 53 ms) | Sin cambio (40 → 42 MiB) | ×1.1 en el ajuste; extracción ~×3.7 |
 | Bosque aleatorio | +0.8 pts | +0.8 pts | No se detectó (p = 0.16) | ×2.9 (20 → 58 ms) | Sin cambio (268 → 266 MiB) | Sin cambio en el ajuste (0.49 s); extracción ~×3.7 |
-| Net5-Octree | +1.0 pts | +2.3 pts | No se detectó (p = 0.11) | ×4.4 (52 → 230 ms, GPU) | +13 % en GPU (729 → 821 MiB), ×2.7 en CPU (272 → 734 MiB) | ×2.8 (3 h → 8 h), VRAM ×3.2 |
+| Net5-Octree | +1.0 pts | +2.3 pts | No se detectó (p = 0.11) | ×4.4 (52 → 230 ms, GPU) | +13 % en GPU en esta corrida; +2 % en la reevaluación. ×2.7 en CPU | ×2.8 (3 h → 8 h), VRAM ×3.2 |
 
 A esto se suma el costo común a todos: **los octrees de R64 ocupan el doble** (203 → 437 MB) y tienen ~4.3 veces más hojas.
 
-**Conclusión: en este experimento, R64 no compensa el costo adicional.**
+**Conclusión: R32 ofrece un compromiso favorable cuando se prioriza el costo; R64 obtiene la mayor exactitud observada.** Decidir si la ganancia compensa depende de la importancia de los aciertos adicionales y de las clases de interés.
 
 - La mejora de exactitud es de **1.3 puntos o menos**, y solo es estadísticamente significativa para el SVM. Para Net5 y el Bosque aleatorio no se detectó una diferencia significativa entre R32 y R64.
 - El costo, en cambio, **se multiplica por 3-4** en tiempo de inferencia para los tres métodos, y por ~3 en tiempo y VRAM de entrenamiento para Net5.
@@ -279,8 +285,13 @@ Matices a esta conclusión:
 
 ## 7. Limitaciones de esta evaluación
 
+- La muestra de memoria contiene 40 objetos de airplane, 40 de bathtub y 20 de bed; los picos corresponden a esas tres clases, no a todo el test.
+- El tiempo GPU de Net5 omite el armado del lote previo al forward; en CPU se incluye. Estas latencias no son mediciones simétricas ni tiempos completos desde la malla.
+- El incremento de RAM adicional de Net5 GPU entre resoluciones fue +13 % en la corrida original y +2 % en la reevaluación: no se establece un porcentaje estable atribuible a la resolución con estas mediciones.
+- Los valores p corresponden a pruebas individuales sin ajuste por comparaciones múltiples. La significación de SVM entre resoluciones debe interpretarse con ese alcance.
+
 - **Un solo entrenamiento por modelo** (semilla 42). No se estimó la variabilidad entre semillas; los intervalos de confianza reflejan solo la variabilidad del conjunto de test.
-- **Latencias medidas en un solo equipo** y en Windows. Los valores absolutos cambian con el hardware; las proporciones entre métodos son más estables.
+- **Latencias medidas en un solo equipo** y en Windows. Los valores absolutos cambian con el hardware; las proporciones también pueden cambiar con el hardware, los hilos y la implementación.
 - **RAM medida como working set de Windows.** Incluye memoria compartida de las bibliotecas, así que la **RAM total** es aproximada. La **RAM adicional** descuenta esa base y es la medida comparable entre casos.
 - **"No se detectó una diferencia significativa" no equivale a que los modelos sean iguales.** Solo indica que, con 2,468 objetos de test y α = 0.05, la prueba de McNemar no permite afirmar que difieran.
 - **Net5 en CPU se midió con un hilo** para igualar la política de los clásicos. Con más hilos su forward sería más rápido.
