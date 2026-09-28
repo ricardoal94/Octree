@@ -1,0 +1,113 @@
+﻿REGISTRO DE EJECUCION - Reevaluacion objetivos 4 y 5
+Inicio: 2026-09-27 20:49:09 -05:00
+Repositorio: C:\Users\ricar\Documents\Codigos\Tesis
+Rama: codex/cierre-comparacion | commit: 8147a6e018243f351c97dca25d3e2d5621a2294b
+git status --short:
+  ?? respaldo_fase4/
+Carpeta evaluada (copia externa, exportada de git con LF): C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta
+
+--- Entorno
+Sistema: Microsoft Windows 11 Pro 10.0.26100
+CPU: AMD Ryzen 7 5700X 8-Core Processor              | nucleos: 8 | hilos: 16
+RAM: 31.9 GB
+GPU: NVIDIA GeForce RTX 5070, 617.14, 12227 MiB, 3 %, 2616 MiB
+Python 3.14.4 | torch 2.11.0+cu128 | CUDA 12.8 True | numpy 2.4.6 | scikit-learn 1.9.0 | numba 0.67.0 | scipy 1.17.1 | joblib 1.5.3 | matplotlib 3.11.0
+Octrees R32: 12311 archivos | R64: 12311 archivos
+
+==============================================================================
+[2026-09-27 20:49:20] 1/5 Auditoria previa (hashes de datos y modelos)
+> python fase4_comparacion/auditar_comparacion.py --carpeta "C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta" --exigir-modelos
+==============================================================================
+{
+  "estado": "OK",
+  "matrices_verificadas": 6,
+  "mcnemar_verificados": 9,
+  "modelos_ausentes": [],
+  "inferencia_repetida": false
+}
+[2026-09-27 20:49:21] codigo de salida: 0 | duracion: 0.01 min
+
+==============================================================================
+[2026-09-27 20:49:21] 2/5 Evaluacion completa (predicciones, tiempos, memoria, analisis)
+> python fase4_comparacion/evaluar_comparacion.py --carpeta "C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta"
+==============================================================================
+
+=== Etapa: predicciones
+[Dataset] Grid-octree nativo 'test': 2468 muestras (R=32, sin expansion densa)
+R32 svm   test acc 0.759319 | oficial 0.759319 [OK]
+R32 rf    test acc 0.763776 | oficial 0.763776 [OK]
+R32 net5  test acc 0.822123 | oficial 0.822123 [OK]
+[Dataset] Grid-octree nativo 'test': 2468 muestras (R=64, sin expansion densa)
+R64 svm   test acc 0.771880 | oficial 0.771880 [OK]
+R64 rf    test acc 0.771880 | oficial 0.771880 [OK]
+R64 net5  test acc 0.832253 | oficial 0.832253 [OK]
+
+=== Etapa: tiempos
+  R32: 50/400 objetos
+  R32: 100/400 objetos
+  R32: 150/400 objetos
+  R32: 200/400 objetos
+  R32: 250/400 objetos
+  R32: 300/400 objetos
+  R32: 350/400 objetos
+  R32: 400/400 objetos
+R32: 400 objetos | mediana total SVM 13.6 ms, RF 18.7, Net5 GPU 48.3, Net5 CPU 153.2
+  R64: 50/400 objetos
+  R64: 100/400 objetos
+  R64: 150/400 objetos
+  R64: 200/400 objetos
+  R64: 250/400 objetos
+  R64: 300/400 objetos
+  R64: 350/400 objetos
+  R64: 400/400 objetos
+R64: 400 objetos | mediana total SVM 51.5 ms, RF 56.8, Net5 GPU 217.5, Net5 CPU 587.1
+
+=== Etapa: memoria
+  svm R32: {'ram_base_mb': 120.89453125, 'ram_modelo_mb': 7.94140625, 'ram_pico_incremento_mb': 40.3359375, 'ram_pico_proceso_mb': 161.23046875}
+  rf R32: {'ram_base_mb': 121.2109375, 'ram_modelo_mb': 142.71875, 'ram_pico_incremento_mb': 267.80078125, 'ram_pico_proceso_mb': 389.01171875}
+  net5_gpu R32: {'ram_base_mb': 580.2421875, 'ram_contexto_cuda_mb': 148.28125, 'ram_modelo_mb': 67.1328125, 'ram_pico_incremento_mb': 747.82421875, 'ram_pico_proceso_mb': 1328.06640625, 'vram_modelo_mb': 32.6123046875, 'vram_pico_asignada_mb': 137.65869140625, 'vram_pico_reservada_mb': 300.0}
+  net5_cpu R32: {'ram_base_mb': 579.68359375, 'ram_contexto_cuda_mb': 0.3125, 'ram_modelo_mb': 67.19140625, 'ram_pico_incremento_mb': 273.9375, 'ram_pico_proceso_mb': 853.62109375}
+  svm R64: {'ram_base_mb': 120.7265625, 'ram_modelo_mb': 8.3515625, 'ram_pico_incremento_mb': 45.8046875, 'ram_pico_proceso_mb': 166.53125}
+  rf R64: {'ram_base_mb': 120.83203125, 'ram_modelo_mb': 142.26171875, 'ram_pico_incremento_mb': 266.12890625, 'ram_pico_proceso_mb': 386.9609375}
+  net5_gpu R64: {'ram_base_mb': 580.15234375, 'ram_contexto_cuda_mb': 147.6875, 'ram_modelo_mb': 67.125, 'ram_pico_incremento_mb': 764.56640625, 'ram_pico_proceso_mb': 1344.71875, 'vram_modelo_mb': 32.6123046875, 'vram_pico_asignada_mb': 420.646484375, 'vram_pico_reservada_mb': 1972.0}
+  net5_cpu R64: {'ram_base_mb': 580.12109375, 'ram_contexto_cuda_mb': 0.46484375, 'ram_modelo_mb': 67.1875, 'ram_pico_incremento_mb': 729.83203125, 'ram_pico_proceso_mb': 1309.953125}
+
+=== Etapa: analisis
+svm_R32    acc 0.7593 IC95 [0.7419, 0.7763] | bal 0.6624 | F1 macro 0.6582
+rf_R32     acc 0.7638 IC95 [0.7476, 0.7804] | bal 0.6764 | F1 macro 0.6772
+net5_R32   acc 0.8221 IC95 [0.8071, 0.8371] | bal 0.7581 | F1 macro 0.7493
+svm_R64    acc 0.7719 IC95 [0.7541, 0.7881] | bal 0.6886 | F1 macro 0.6847
+rf_R64     acc 0.7719 IC95 [0.7553, 0.7881] | bal 0.6780 | F1 macro 0.6853
+net5_R64   acc 0.8323 IC95 [0.8177, 0.8472] | bal 0.7729 | F1 macro 0.7723
+[2026-09-27 21:01:25] codigo de salida: 0 | duracion: 12.07 min
+
+==============================================================================
+[2026-09-27 21:01:25] 3/5 Auditoria posterior
+> python fase4_comparacion/auditar_comparacion.py --carpeta "C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta" --exigir-modelos
+==============================================================================
+{
+  "estado": "OK",
+  "matrices_verificadas": 6,
+  "mcnemar_verificados": 9,
+  "modelos_ausentes": [],
+  "inferencia_repetida": false
+}
+[2026-09-27 21:01:25] codigo de salida: 0 | duracion: 0.01 min
+
+==============================================================================
+[2026-09-27 21:01:25] 4/5 Tablas
+> python fase4_comparacion/tablas_comparacion.py --carpeta "C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta"
+==============================================================================
+Tablas en C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta\tablas
+[2026-09-27 21:01:25] codigo de salida: 0 | duracion: 0 min
+
+==============================================================================
+[2026-09-27 21:01:25] 5/5 Figuras
+> python fase4_comparacion/figuras_comparacion.py --carpeta "C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta"
+==============================================================================
+findfont: Failed to find font weight semibold, now using 700.
+findfont: Failed to find font weight semibold, now using 700.
+Figuras en C:\Users\ricar\Documents\Codigos\Reevaluacion_objetivos_4_5_20260927\carpeta\figuras
+[2026-09-27 21:01:30] codigo de salida: 0 | duracion: 0.07 min
+
+Fin: 2026-09-27 21:01:30 -05:00

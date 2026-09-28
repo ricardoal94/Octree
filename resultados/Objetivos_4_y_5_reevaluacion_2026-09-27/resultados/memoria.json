@@ -1,0 +1,74 @@
+{
+  "protocolo": "Cada caso en un proceso nuevo. 'ram_base_mb' es el working set tras importar las bibliotecas; los incrementos se miden sobre esa base. Inferencia de 100 objetos de test, uno a uno, desde el .npz. El pico de RAM se muestrea cada 2 ms.",
+  "entorno": {
+    "sistema": "Windows 11 (10.0.26100)",
+    "cpu": "AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD",
+    "nucleos_logicos": 16,
+    "python": "3.14.4",
+    "scikit_learn": "1.9.0",
+    "numpy": "2.4.6",
+    "pytorch": "2.11.0+cu128",
+    "gpu": "NVIDIA GeForce RTX 5070",
+    "hilos_torch_cpu": 1
+  },
+  "casos": {
+    "svm_R32": {
+      "ram_base_mb": 120.89453125,
+      "ram_modelo_mb": 7.94140625,
+      "ram_pico_incremento_mb": 40.3359375,
+      "ram_pico_proceso_mb": 161.23046875
+    },
+    "rf_R32": {
+      "ram_base_mb": 121.2109375,
+      "ram_modelo_mb": 142.71875,
+      "ram_pico_incremento_mb": 267.80078125,
+      "ram_pico_proceso_mb": 389.01171875
+    },
+    "net5_gpu_R32": {
+      "ram_base_mb": 580.2421875,
+      "ram_contexto_cuda_mb": 148.28125,
+      "ram_modelo_mb": 67.1328125,
+      "ram_pico_incremento_mb": 747.82421875,
+      "ram_pico_proceso_mb": 1328.06640625,
+      "vram_modelo_mb": 32.6123046875,
+      "vram_pico_asignada_mb": 137.65869140625,
+      "vram_pico_reservada_mb": 300.0
+    },
+    "net5_cpu_R32": {
+      "ram_base_mb": 579.68359375,
+      "ram_contexto_cuda_mb": 0.3125,
+      "ram_modelo_mb": 67.19140625,
+      "ram_pico_incremento_mb": 273.9375,
+      "ram_pico_proceso_mb": 853.62109375
+    },
+    "svm_R64": {
+      "ram_base_mb": 120.7265625,
+      "ram_modelo_mb": 8.3515625,
+      "ram_pico_incremento_mb": 45.8046875,
+      "ram_pico_proceso_mb": 166.53125
+    },
+    "rf_R64": {
+      "ram_base_mb": 120.83203125,
+      "ram_modelo_mb": 142.26171875,
+      "ram_pico_incremento_mb": 266.12890625,
+      "ram_pico_proceso_mb": 386.9609375
+    },
+    "net5_gpu_R64": {
+      "ram_base_mb": 580.15234375,
+      "ram_contexto_cuda_mb": 147.6875,
+      "ram_modelo_mb": 67.125,
+      "ram_pico_incremento_mb": 764.56640625,
+      "ram_pico_proceso_mb": 1344.71875,
+      "vram_modelo_mb": 32.6123046875,
+      "vram_pico_asignada_mb": 420.646484375,
+      "vram_pico_reservada_mb": 1972.0
+    },
+    "net5_cpu_R64": {
+      "ram_base_mb": 580.12109375,
+      "ram_contexto_cuda_mb": 0.46484375,
+      "ram_modelo_mb": 67.1875,
+      "ram_pico_incremento_mb": 729.83203125,
+      "ram_pico_proceso_mb": 1309.953125
+    }
+  }
+}

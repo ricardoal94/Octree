@@ -1,0 +1,485 @@
+{
+  "predicciones": {
+    "32": {
+      "mismos_ids": true,
+      "n": 2468,
+      "diferencias": {
+        "svm": 0,
+        "rf": 0,
+        "net5": 0
+      }
+    },
+    "64": {
+      "mismos_ids": true,
+      "n": 2468,
+      "diferencias": {
+        "svm": 0,
+        "rf": 0,
+        "net5": 0
+      }
+    }
+  },
+  "analisis_identico": {
+    "metricas": true,
+    "acuerdo_entre_metodos": true,
+    "mcnemar": true,
+    "confusiones_principales": true,
+    "datos_por_resolucion": true,
+    "modelos": true,
+    "recall_por_clase": true
+  },
+  "tiempos": {
+    "32": {
+      "misma_muestra": true,
+      "campos": {
+        "hce_carga_ms": {
+          "mediana_anterior": 8.32289999925706,
+          "mediana_nueva": 7.928250000986736,
+          "cambio_mediana_pct": -4.741736633932315,
+          "p95_anterior": 19.222205000551185,
+          "p95_nuevo": 19.51724000246031,
+          "cambio_p95_pct": 1.5348655469061119
+        },
+        "hce_descriptores_ms": {
+          "mediana_anterior": 5.024250000133179,
+          "mediana_nueva": 4.8696999983803835,
+          "cambio_mediana_pct": -3.0760810419206637,
+          "p95_anterior": 12.800395000522254,
+          "p95_nuevo": 11.785174998658443,
+          "cambio_p95_pct": -7.931161513550095
+        },
+        "svm_clasificador_ms": {
+          "mediana_anterior": 0.8226500012824545,
+          "mediana_nueva": 0.8151500005624257,
+          "cambio_mediana_pct": -0.9116879241885106,
+          "p95_anterior": 1.1745499989046946,
+          "p95_nuevo": 0.9859400051936973,
+          "cambio_p95_pct": -16.058064270306257
+        },
+        "rf_clasificador_ms": {
+          "mediana_anterior": 5.88189999871247,
+          "mediana_nueva": 5.828650002513314,
+          "cambio_mediana_pct": -0.9053196451964913,
+          "p95_anterior": 8.815680001134751,
+          "p95_nuevo": 6.750195002314282,
+          "cambio_p95_pct": -23.429673020738058
+        },
+        "net5_carga_ms": {
+          "mediana_anterior": 7.300200000827317,
+          "mediana_nueva": 6.909950003318954,
+          "cambio_mediana_pct": -5.345743917483584,
+          "p95_anterior": 16.993864998221397,
+          "p95_nuevo": 15.493125001376002,
+          "cambio_p95_pct": -8.831069312381054
+        },
+        "net5_preparacion_ms": {
+          "mediana_anterior": 37.546999999904074,
+          "mediana_nueva": 35.48159999991185,
+          "cambio_mediana_pct": -5.5008389485112,
+          "p95_anterior": 77.73009999800696,
+          "p95_nuevo": 68.04113000143838,
+          "cambio_p95_pct": -12.464888115179342
+        },
+        "net5_forward_gpu_ms": {
+          "mediana_anterior": 5.911000000196509,
+          "mediana_nueva": 5.5863499983388465,
+          "cambio_mediana_pct": -5.492302518133475,
+          "p95_anterior": 13.470685001266242,
+          "p95_nuevo": 7.6147600033436875,
+          "cambio_p95_pct": -43.47162002060102
+        },
+        "net5_forward_cpu_ms": {
+          "mediana_anterior": 102.64690000076371,
+          "mediana_nueva": 108.92920000333106,
+          "cambio_mediana_pct": 6.1203017358737695,
+          "p95_anterior": 223.77666000065796,
+          "p95_nuevo": 225.7525549972342,
+          "cambio_p95_pct": 0.8829763553403802
+        },
+        "svm_total_ms": {
+          "mediana_anterior": 14.317949999167467,
+          "mediana_nueva": 13.611149999633199,
+          "cambio_mediana_pct": -4.936460873067489,
+          "p95_anterior": 34.604884999498566,
+          "p95_nuevo": 34.98585000379531,
+          "cambio_p95_pct": 1.1008994952656768
+        },
+        "rf_total_ms": {
+          "mediana_anterior": 19.65734999976121,
+          "mediana_nueva": 18.686400002479786,
+          "cambio_mediana_pct": -4.939373808235686,
+          "p95_anterior": 40.75942999807011,
+          "p95_nuevo": 39.82415499995109,
+          "cambio_p95_pct": -2.2946223687703773
+        },
+        "net5_gpu_total_ms": {
+          "mediana_anterior": 52.09320000176376,
+          "mediana_nueva": 48.30050000236952,
+          "cambio_mediana_pct": -7.280604760824507,
+          "p95_anterior": 105.38904000313775,
+          "p95_nuevo": 91.50732500529556,
+          "cambio_p95_pct": -13.171877262976203
+        },
+        "net5_cpu_total_ms": {
+          "mediana_anterior": 148.54405000187398,
+          "mediana_nueva": 153.2010500013712,
+          "cambio_mediana_pct": 3.1350969624420846,
+          "p95_anterior": 312.3660499986726,
+          "p95_nuevo": 310.30308500667144,
+          "cambio_p95_pct": -0.6604318849663562
+        }
+      }
+    },
+    "64": {
+      "misma_muestra": true,
+      "campos": {
+        "hce_carga_ms": {
+          "mediana_anterior": 27.559300000575604,
+          "mediana_nueva": 27.293849998386577,
+          "cambio_mediana_pct": -0.9631957349551076,
+          "p95_anterior": 76.59642999788042,
+          "p95_nuevo": 71.9895000005634,
+          "cambio_p95_pct": -6.014549238710613
+        },
+        "hce_descriptores_ms": {
+          "mediana_anterior": 23.037649998514098,
+          "mediana_nueva": 22.7645000013581,
+          "cambio_mediana_pct": -1.1856677967310678,
+          "p95_anterior": 48.59981000045079,
+          "p95_nuevo": 45.95417999844356,
+          "cambio_p95_pct": -5.443704413623616
+        },
+        "svm_clasificador_ms": {
+          "mediana_anterior": 0.8206000002246583,
+          "mediana_nueva": 0.8383500025956891,
+          "cambio_mediana_pct": 2.1630517141325107,
+          "p95_anterior": 1.0686100002203587,
+          "p95_nuevo": 0.9673900010966461,
+          "cambio_p95_pct": -9.472117901090199
+        },
+        "rf_clasificador_ms": {
+          "mediana_anterior": 5.772050000814488,
+          "mediana_nueva": 5.79479999942123,
+          "cambio_mediana_pct": 0.39414070570302057,
+          "p95_anterior": 7.853174998490426,
+          "p95_nuevo": 6.412145002468605,
+          "cambio_p95_pct": -18.349648343489395
+        },
+        "net5_carga_ms": {
+          "mediana_anterior": 24.908349998440826,
+          "mediana_nueva": 24.542849998397287,
+          "cambio_mediana_pct": -1.4673794131944442,
+          "p95_anterior": 60.72146000169573,
+          "p95_nuevo": 67.88771499850554,
+          "cambio_p95_pct": 11.801848961816274
+        },
+        "net5_preparacion_ms": {
+          "mediana_anterior": 187.90315000114788,
+          "mediana_nueva": 180.22114999985206,
+          "cambio_mediana_pct": -4.088276328123765,
+          "p95_anterior": 358.6360049979702,
+          "p95_nuevo": 355.14730999711895,
+          "cambio_p95_pct": -0.9727676396771658
+        },
+        "net5_forward_gpu_ms": {
+          "mediana_anterior": 11.806349999460508,
+          "mediana_nueva": 9.895749997667735,
+          "cambio_mediana_pct": -16.182816889894656,
+          "p95_anterior": 66.78940999900071,
+          "p95_nuevo": 16.754310001124345,
+          "cambio_p95_pct": -74.91472075981055
+        },
+        "net5_forward_cpu_ms": {
+          "mediana_anterior": 334.87425000021176,
+          "mediana_nueva": 379.5039500000712,
+          "cambio_mediana_pct": 13.327301218242734,
+          "p95_anterior": 695.8944549980514,
+          "p95_nuevo": 804.6718699995834,
+          "cambio_p95_pct": 15.631309348748374
+        },
+        "svm_total_ms": {
+          "mediana_anterior": 52.737050000359886,
+          "mediana_nueva": 51.52989999987767,
+          "cambio_mediana_pct": -2.2889979634317386,
+          "p95_anterior": 118.77231999751525,
+          "p95_nuevo": 121.51038000338303,
+          "cambio_p95_pct": 2.3053014422258156
+        },
+        "rf_total_ms": {
+          "mediana_anterior": 57.68219999845314,
+          "mediana_nueva": 56.776700002956204,
+          "cambio_mediana_pct": -1.5698083559940876,
+          "p95_anterior": 123.8181049977355,
+          "p95_nuevo": 126.26617000496479,
+          "cambio_p95_pct": 1.9771462398605286
+        },
+        "net5_gpu_total_ms": {
+          "mediana_anterior": 230.10109999813722,
+          "mediana_nueva": 217.51649999350775,
+          "cambio_mediana_pct": -5.4691611664313395,
+          "p95_anterior": 462.9360649989386,
+          "p95_nuevo": 441.8601750043308,
+          "cambio_p95_pct": -4.552656746381623
+        },
+        "net5_cpu_total_ms": {
+          "mediana_anterior": 549.0957500023796,
+          "mediana_nueva": 587.0506999999634,
+          "cambio_mediana_pct": 6.9122643905765555,
+          "p95_anterior": 1090.239324999492,
+          "p95_nuevo": 1218.7841050050326,
+          "cambio_p95_pct": 11.790510308881078
+        }
+      }
+    },
+    "entorno_anterior": {
+      "sistema": "Windows 11 (10.0.26100)",
+      "cpu": "AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD",
+      "nucleos_logicos": 16,
+      "python": "3.14.4",
+      "scikit_learn": "1.9.0",
+      "numpy": "2.4.6",
+      "pytorch": "2.11.0+cu128",
+      "gpu": "NVIDIA GeForce RTX 5070",
+      "hilos_torch_cpu": 1
+    },
+    "entorno_nuevo": {
+      "sistema": "Windows 11 (10.0.26100)",
+      "cpu": "AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD",
+      "nucleos_logicos": 16,
+      "python": "3.14.4",
+      "scikit_learn": "1.9.0",
+      "numpy": "2.4.6",
+      "pytorch": "2.11.0+cu128",
+      "gpu": "NVIDIA GeForce RTX 5070",
+      "hilos_torch_cpu": 1
+    }
+  },
+  "memoria": {
+    "svm_R32": {
+      "ram_base_mb": {
+        "anterior": 120.96875,
+        "nuevo": 120.89453125,
+        "diferencia": -0.07421875
+      },
+      "ram_modelo_mb": {
+        "anterior": 8.1875,
+        "nuevo": 7.94140625,
+        "diferencia": -0.24609375
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 40.41796875,
+        "nuevo": 40.3359375,
+        "diferencia": -0.08203125
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 161.38671875,
+        "nuevo": 161.23046875,
+        "diferencia": -0.15625
+      }
+    },
+    "rf_R32": {
+      "ram_base_mb": {
+        "anterior": 120.59765625,
+        "nuevo": 121.2109375,
+        "diferencia": 0.61328125
+      },
+      "ram_modelo_mb": {
+        "anterior": 143.2421875,
+        "nuevo": 142.71875,
+        "diferencia": -0.5234375
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 267.58984375,
+        "nuevo": 267.80078125,
+        "diferencia": 0.2109375
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 388.1875,
+        "nuevo": 389.01171875,
+        "diferencia": 0.82421875
+      }
+    },
+    "net5_gpu_R32": {
+      "ram_base_mb": {
+        "anterior": 579.96875,
+        "nuevo": 580.2421875,
+        "diferencia": 0.2734375
+      },
+      "ram_contexto_cuda_mb": {
+        "anterior": 148.32421875,
+        "nuevo": 148.28125,
+        "diferencia": -0.04296875
+      },
+      "ram_modelo_mb": {
+        "anterior": 67.0859375,
+        "nuevo": 67.1328125,
+        "diferencia": 0.046875
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 728.9375,
+        "nuevo": 747.82421875,
+        "diferencia": 18.88671875
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 1308.90625,
+        "nuevo": 1328.06640625,
+        "diferencia": 19.16015625
+      },
+      "vram_modelo_mb": {
+        "anterior": 32.6123046875,
+        "nuevo": 32.6123046875,
+        "diferencia": 0.0
+      },
+      "vram_pico_asignada_mb": {
+        "anterior": 137.65869140625,
+        "nuevo": 137.65869140625,
+        "diferencia": 0.0
+      },
+      "vram_pico_reservada_mb": {
+        "anterior": 300.0,
+        "nuevo": 300.0,
+        "diferencia": 0.0
+      }
+    },
+    "net5_cpu_R32": {
+      "ram_base_mb": {
+        "anterior": 580.21875,
+        "nuevo": 579.68359375,
+        "diferencia": -0.53515625
+      },
+      "ram_contexto_cuda_mb": {
+        "anterior": 0.35546875,
+        "nuevo": 0.3125,
+        "diferencia": -0.04296875
+      },
+      "ram_modelo_mb": {
+        "anterior": 67.31640625,
+        "nuevo": 67.19140625,
+        "diferencia": -0.125
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 272.171875,
+        "nuevo": 273.9375,
+        "diferencia": 1.765625
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 852.390625,
+        "nuevo": 853.62109375,
+        "diferencia": 1.23046875
+      }
+    },
+    "svm_R64": {
+      "ram_base_mb": {
+        "anterior": 120.8125,
+        "nuevo": 120.7265625,
+        "diferencia": -0.0859375
+      },
+      "ram_modelo_mb": {
+        "anterior": 8.17578125,
+        "nuevo": 8.3515625,
+        "diferencia": 0.17578125
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 42.15234375,
+        "nuevo": 45.8046875,
+        "diferencia": 3.65234375
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 162.96484375,
+        "nuevo": 166.53125,
+        "diferencia": 3.56640625
+      }
+    },
+    "rf_R64": {
+      "ram_base_mb": {
+        "anterior": 120.87109375,
+        "nuevo": 120.83203125,
+        "diferencia": -0.0390625
+      },
+      "ram_modelo_mb": {
+        "anterior": 142.33203125,
+        "nuevo": 142.26171875,
+        "diferencia": -0.0703125
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 266.0078125,
+        "nuevo": 266.12890625,
+        "diferencia": 0.12109375
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 386.87890625,
+        "nuevo": 386.9609375,
+        "diferencia": 0.08203125
+      }
+    },
+    "net5_gpu_R64": {
+      "ram_base_mb": {
+        "anterior": 580.41015625,
+        "nuevo": 580.15234375,
+        "diferencia": -0.2578125
+      },
+      "ram_contexto_cuda_mb": {
+        "anterior": 147.43359375,
+        "nuevo": 147.6875,
+        "diferencia": 0.25390625
+      },
+      "ram_modelo_mb": {
+        "anterior": 67.484375,
+        "nuevo": 67.125,
+        "diferencia": -0.359375
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 821.4921875,
+        "nuevo": 764.56640625,
+        "diferencia": -56.92578125
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 1401.90234375,
+        "nuevo": 1344.71875,
+        "diferencia": -57.18359375
+      },
+      "vram_modelo_mb": {
+        "anterior": 32.6123046875,
+        "nuevo": 32.6123046875,
+        "diferencia": 0.0
+      },
+      "vram_pico_asignada_mb": {
+        "anterior": 420.646484375,
+        "nuevo": 420.646484375,
+        "diferencia": 0.0
+      },
+      "vram_pico_reservada_mb": {
+        "anterior": 1972.0,
+        "nuevo": 1972.0,
+        "diferencia": 0.0
+      }
+    },
+    "net5_cpu_R64": {
+      "ram_base_mb": {
+        "anterior": 580.140625,
+        "nuevo": 580.12109375,
+        "diferencia": -0.01953125
+      },
+      "ram_contexto_cuda_mb": {
+        "anterior": 0.19140625,
+        "nuevo": 0.46484375,
+        "diferencia": 0.2734375
+      },
+      "ram_modelo_mb": {
+        "anterior": 67.2109375,
+        "nuevo": 67.1875,
+        "diferencia": -0.0234375
+      },
+      "ram_pico_incremento_mb": {
+        "anterior": 734.2109375,
+        "nuevo": 729.83203125,
+        "diferencia": -4.37890625
+      },
+      "ram_pico_proceso_mb": {
+        "anterior": 1314.3515625,
+        "nuevo": 1309.953125,
+        "diferencia": -4.3984375
+      }
+    }
+  }
+}

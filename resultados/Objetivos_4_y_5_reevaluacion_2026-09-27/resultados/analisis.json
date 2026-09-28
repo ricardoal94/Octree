@@ -1,0 +1,469 @@
+{
+  "metricas": {
+    "svm_R32": {
+      "aciertos": 1874,
+      "errores": 594,
+      "n": 2468,
+      "exactitud": 0.7593192868719612,
+      "exactitud_ic95": [
+        0.7418962722852512,
+        0.7763371150729336
+      ],
+      "exactitud_balanceada": 0.6623837209302326,
+      "f1_macro": 0.6581641323084433,
+      "f1_ponderado": 0.7546608969458622
+    },
+    "rf_R32": {
+      "aciertos": 1885,
+      "errores": 583,
+      "n": 2468,
+      "exactitud": 0.763776337115073,
+      "exactitud_ic95": [
+        0.7475688816855753,
+        0.7803889789303079
+      ],
+      "exactitud_balanceada": 0.6763837209302326,
+      "f1_macro": 0.6771571261459636,
+      "f1_ponderado": 0.7543107246705025
+    },
+    "net5_R32": {
+      "aciertos": 2029,
+      "errores": 439,
+      "n": 2468,
+      "exactitud": 0.8221231766612642,
+      "exactitud_ic95": [
+        0.807131280388979,
+        0.8371150729335495
+      ],
+      "exactitud_balanceada": 0.7580813953488372,
+      "f1_macro": 0.7493027513068988,
+      "f1_ponderado": 0.8199201835161789
+    },
+    "svm_R64": {
+      "aciertos": 1905,
+      "errores": 563,
+      "n": 2468,
+      "exactitud": 0.7718800648298217,
+      "exactitud_ic95": [
+        0.7540518638573744,
+        0.7880875202593193
+      ],
+      "exactitud_balanceada": 0.6885813953488371,
+      "f1_macro": 0.6847160653318948,
+      "f1_ponderado": 0.7691449703783679
+    },
+    "rf_R64": {
+      "aciertos": 1905,
+      "errores": 563,
+      "n": 2468,
+      "exactitud": 0.7718800648298217,
+      "exactitud_ic95": [
+        0.7552674230145867,
+        0.7880875202593193
+      ],
+      "exactitud_balanceada": 0.6780116279069768,
+      "f1_macro": 0.6852999217138305,
+      "f1_ponderado": 0.7634672383817159
+    },
+    "net5_R64": {
+      "aciertos": 2054,
+      "errores": 414,
+      "n": 2468,
+      "exactitud": 0.8322528363047001,
+      "exactitud_ic95": [
+        0.8176661264181524,
+        0.8472447325769854
+      ],
+      "exactitud_balanceada": 0.7728720930232559,
+      "f1_macro": 0.7722955186722302,
+      "f1_ponderado": 0.8338313875055435
+    }
+  },
+  "acuerdo_entre_metodos": {
+    "32": {
+      "los_3_aciertan": 1616,
+      "2_aciertan": 338,
+      "1_acierta": 264,
+      "ninguno_acierta": 250,
+      "solo_net5_acierta": 166,
+      "solo_hce_acierta": 189,
+      "oraculo_alguno_acierta": 0.8987034035656402
+    },
+    "64": {
+      "los_3_aciertan": 1651,
+      "2_aciertan": 320,
+      "1_acierta": 271,
+      "ninguno_acierta": 226,
+      "solo_net5_acierta": 179,
+      "solo_hce_acierta": 188,
+      "oraculo_alguno_acierta": 0.9084278768233387
+    }
+  },
+  "mcnemar": [
+    {
+      "comparacion": "net5 vs svm",
+      "resolucion": 32,
+      "solo_primero_acierta": 297,
+      "solo_segundo_acierta": 142,
+      "p_valor": 1.1066845453988331e-13
+    },
+    {
+      "comparacion": "net5 vs rf",
+      "resolucion": 32,
+      "solo_primero_acierta": 282,
+      "solo_segundo_acierta": 138,
+      "p_valor": 1.832860263986425e-12
+    },
+    {
+      "comparacion": "rf vs svm",
+      "resolucion": 32,
+      "solo_primero_acierta": 178,
+      "solo_segundo_acierta": 167,
+      "p_valor": 0.5903775436602208
+    },
+    {
+      "comparacion": "net5 vs svm",
+      "resolucion": 64,
+      "solo_primero_acierta": 289,
+      "solo_segundo_acierta": 140,
+      "p_valor": 5.269371760119748e-13
+    },
+    {
+      "comparacion": "net5 vs rf",
+      "resolucion": 64,
+      "solo_primero_acierta": 293,
+      "solo_segundo_acierta": 144,
+      "p_valor": 8.738977998574593e-13
+    },
+    {
+      "comparacion": "rf vs svm",
+      "resolucion": 64,
+      "solo_primero_acierta": 158,
+      "solo_segundo_acierta": 158,
+      "p_valor": 1.0
+    },
+    {
+      "comparacion": "svm: R64 vs R32",
+      "resolucion": "64 vs 32",
+      "solo_primero_acierta": 110,
+      "solo_segundo_acierta": 79,
+      "p_valor": 0.02882825031214214
+    },
+    {
+      "comparacion": "rf: R64 vs R32",
+      "resolucion": "64 vs 32",
+      "solo_primero_acierta": 102,
+      "solo_segundo_acierta": 82,
+      "p_valor": 0.16112227096097986
+    },
+    {
+      "comparacion": "net5: R64 vs R32",
+      "resolucion": "64 vs 32",
+      "solo_primero_acierta": 125,
+      "solo_segundo_acierta": 100,
+      "p_valor": 0.10939346729996953
+    }
+  ],
+  "confusiones_principales": {
+    "svm_R32": [
+      {
+        "real": "night_stand",
+        "predicha": "dresser",
+        "n": 21
+      },
+      {
+        "real": "bottle",
+        "predicha": "vase",
+        "n": 15
+      },
+      {
+        "real": "vase",
+        "predicha": "bottle",
+        "n": 15
+      },
+      {
+        "real": "table",
+        "predicha": "desk",
+        "n": 14
+      },
+      {
+        "real": "bathtub",
+        "predicha": "bed",
+        "n": 12
+      },
+      {
+        "real": "desk",
+        "predicha": "table",
+        "n": 11
+      },
+      {
+        "real": "dresser",
+        "predicha": "night_stand",
+        "n": 11
+      },
+      {
+        "real": "plant",
+        "predicha": "vase",
+        "n": 8
+      }
+    ],
+    "rf_R32": [
+      {
+        "real": "table",
+        "predicha": "desk",
+        "n": 21
+      },
+      {
+        "real": "dresser",
+        "predicha": "night_stand",
+        "n": 19
+      },
+      {
+        "real": "bathtub",
+        "predicha": "bed",
+        "n": 17
+      },
+      {
+        "real": "night_stand",
+        "predicha": "dresser",
+        "n": 17
+      },
+      {
+        "real": "vase",
+        "predicha": "bottle",
+        "n": 12
+      },
+      {
+        "real": "plant",
+        "predicha": "person",
+        "n": 10
+      },
+      {
+        "real": "range_hood",
+        "predicha": "mantel",
+        "n": 10
+      },
+      {
+        "real": "desk",
+        "predicha": "table",
+        "n": 9
+      }
+    ],
+    "net5_R32": [
+      {
+        "real": "table",
+        "predicha": "desk",
+        "n": 28
+      },
+      {
+        "real": "night_stand",
+        "predicha": "dresser",
+        "n": 26
+      },
+      {
+        "real": "dresser",
+        "predicha": "night_stand",
+        "n": 13
+      },
+      {
+        "real": "desk",
+        "predicha": "table",
+        "n": 12
+      },
+      {
+        "real": "flower_pot",
+        "predicha": "plant",
+        "n": 12
+      },
+      {
+        "real": "night_stand",
+        "predicha": "table",
+        "n": 8
+      },
+      {
+        "real": "vase",
+        "predicha": "cup",
+        "n": 8
+      },
+      {
+        "real": "plant",
+        "predicha": "flower_pot",
+        "n": 6
+      }
+    ],
+    "svm_R64": [
+      {
+        "real": "table",
+        "predicha": "desk",
+        "n": 20
+      },
+      {
+        "real": "night_stand",
+        "predicha": "dresser",
+        "n": 18
+      },
+      {
+        "real": "bottle",
+        "predicha": "vase",
+        "n": 14
+      },
+      {
+        "real": "vase",
+        "predicha": "bottle",
+        "n": 14
+      },
+      {
+        "real": "dresser",
+        "predicha": "night_stand",
+        "n": 13
+      },
+      {
+        "real": "bathtub",
+        "predicha": "bed",
+        "n": 12
+      },
+      {
+        "real": "desk",
+        "predicha": "table",
+        "n": 8
+      },
+      {
+        "real": "plant",
+        "predicha": "vase",
+        "n": 8
+      }
+    ],
+    "rf_R64": [
+      {
+        "real": "night_stand",
+        "predicha": "dresser",
+        "n": 25
+      },
+      {
+        "real": "table",
+        "predicha": "desk",
+        "n": 20
+      },
+      {
+        "real": "bathtub",
+        "predicha": "bed",
+        "n": 12
+      },
+      {
+        "real": "bottle",
+        "predicha": "vase",
+        "n": 12
+      },
+      {
+        "real": "dresser",
+        "predicha": "night_stand",
+        "n": 12
+      },
+      {
+        "real": "vase",
+        "predicha": "bottle",
+        "n": 11
+      },
+      {
+        "real": "desk",
+        "predicha": "table",
+        "n": 10
+      },
+      {
+        "real": "plant",
+        "predicha": "person",
+        "n": 9
+      }
+    ],
+    "net5_R64": [
+      {
+        "real": "night_stand",
+        "predicha": "dresser",
+        "n": 21
+      },
+      {
+        "real": "dresser",
+        "predicha": "night_stand",
+        "n": 18
+      },
+      {
+        "real": "table",
+        "predicha": "desk",
+        "n": 17
+      },
+      {
+        "real": "plant",
+        "predicha": "flower_pot",
+        "n": 15
+      },
+      {
+        "real": "vase",
+        "predicha": "cup",
+        "n": 11
+      },
+      {
+        "real": "desk",
+        "predicha": "table",
+        "n": 10
+      },
+      {
+        "real": "flower_pot",
+        "predicha": "plant",
+        "n": 10
+      },
+      {
+        "real": "vase",
+        "predicha": "flower_pot",
+        "n": 10
+      }
+    ]
+  },
+  "datos_por_resolucion": {
+    "32": {
+      "archivos": 12311,
+      "total_mb": 203.329749,
+      "media_kb": 16.12900722994172
+    },
+    "64": {
+      "archivos": 12311,
+      "total_mb": 436.624404,
+      "media_kb": 34.63496219082528
+    }
+  },
+  "modelos": {
+    "32": {
+      "svm": {
+        "archivo_mb": 4.426473,
+        "vectores_soporte": 5765,
+        "n_caracteristicas": 17
+      },
+      "rf": {
+        "archivo_mb": 137.732249,
+        "arboles": 100,
+        "nodos": 358494,
+        "n_caracteristicas": 17
+      },
+      "net5": {
+        "archivo_mb": 34.200823,
+        "parametros": 8547456
+      }
+    },
+    "64": {
+      "svm": {
+        "archivo_mb": 4.393097,
+        "vectores_soporte": 5662,
+        "n_caracteristicas": 18
+      },
+      "rf": {
+        "archivo_mb": 137.152409,
+        "arboles": 100,
+        "nodos": 356984,
+        "n_caracteristicas": 18
+      },
+      "net5": {
+        "archivo_mb": 34.200887,
+        "parametros": 8547456
+      }
+    }
+  }
+}
