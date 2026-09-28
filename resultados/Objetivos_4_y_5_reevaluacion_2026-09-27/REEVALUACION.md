@@ -1,6 +1,6 @@
 # Reevaluación de los modelos entrenados con los octrees originales (27-09-2026)
 
-Reevaluación de los seis modelos ya entrenados (SVM, Bosque aleatorio y Net5-Octree, en R32 y R64) en el equipo de los autores, con los octrees originales de ModelNet40. Se siguieron las instrucciones de la PR #26 (`../Objetivos_4_y_5_comparacion/README.md`, sección 2.2) **sin modificar ninguno de sus programas**.
+Reevaluación de los seis modelos ya entrenados (SVM, Bosque aleatorio y Net5-Octree, en R32 y R64) en el equipo de los autores. Net5 se evaluó sobre los 2.468 octrees originales del test por resolución. Para SVM y Bosque Aleatorio, la evaluación completa reutilizó las características publicadas; la etapa de tiempos regeneró descriptores desde 400 octrees por resolución y permitió contrastar las predicciones de esa muestra. Se siguieron las instrucciones de la PR #26 (`../Objetivos_4_y_5_comparacion/README.md`, sección 2.2) **sin modificar ninguno de sus programas**.
 
 La nueva ejecución se guarda en **una carpeta separada** para conservar los resultados anteriores y poder compararlos:
 
@@ -15,7 +15,7 @@ La nueva ejecución se guarda en **una carpeta separada** para conservar los res
 
 - **Aciertos y errores: reproducidos exactamente.** Las 2,468 predicciones de cada uno de los 6 modelos coinciden con las publicadas (0 diferencias), y también las métricas, los intervalos de confianza, las pruebas de McNemar, el acuerdo entre métodos, las confusiones y el recall por clase.
 - **Tiempos: varían entre −7.3 % y +6.9 %** en la latencia total por objeto (mediana). Se mantienen las proporciones entre métodos y resoluciones que sostienen las conclusiones del informe.
-- **Memoria: estable, con una excepción.** La RAM adicional de Net5 en GPU pasa de +13 % a +2 % entre R32 y R64. Esa diferencia está dentro de la variación entre ejecuciones y no debe presentarse como un efecto de la resolución.
+- **Memoria: estable, con una excepción.** La RAM adicional de Net5 en GPU pasa de +13 % a +2 % entre R32 y R64. Con estas dos ejecuciones no se establece un porcentaje estable atribuible a la resolución.
 - Se encontraron dos problemas de **portabilidad a Windows** en los programas de auditoría, y uno de **acceso** al enlace de Drive (sección 4).
 
 ## 1. Qué se ejecutó
@@ -105,7 +105,7 @@ Por componentes, el mayor cambio es el forward de Net5: −16.2 % en GPU y +13.3
 | Net5 CPU R32 | 272 | 274 | 852 | 854 | — |
 | Net5 CPU R64 | 734 | 730 | 1,314 | 1,310 | — |
 
-La VRAM es idéntica y los casos de CPU varían menos de 5 MiB. La RAM adicional de **Net5 en GPU** varía más (+19 MiB en R32 y −56 MiB en R64). Con ello, la diferencia R32 → R64 pasa de **+13 %** (publicado) a **+2 %** (nuevo). **La afirmación del informe publicado "RAM adicional de Net5 en GPU: +13 % en R64" no es robusta:** está dentro de la variación entre ejecuciones. El aumento en CPU (×2.7) sí se reproduce.
+La VRAM es idéntica y los casos de CPU varían menos de 5 MiB. La RAM adicional de **Net5 en GPU** varía más (+19 MiB en R32 y −56 MiB en R64). Con ello, la diferencia R32 → R64 pasa de **+13 %** (publicado) a **+2 %** (nuevo). **La afirmación del informe publicado "RAM adicional de Net5 en GPU: +13 % en R64" no es robusta:** las dos ejecuciones no permiten establecer ese porcentaje como un efecto estable de la resolución. El aumento en CPU (×2.7) sí se reproduce.
 
 ## 4. Hallazgos para revisar
 
@@ -116,11 +116,11 @@ Con `core.autocrlf=true`, que es la configuración habitual de git en Windows, l
 - `auditar_comparacion.py` **falla** en una copia de trabajo de Windows con `Hash distinto: datos/particion_objetivo2_modelos.json`. El contenido es idéntico: sin los CR, el hash coincide con `SHA256SUMS.txt` y con el blob de git.
 - `comparar_resumenes.py` **reescribe** `resultados/objetivo4/auditoria_comparacion.json` con otros hashes de los resúmenes de Net5, por la misma causa. El cambio se revirtió y no forma parte de esta entrega.
 
-En el CI de Linux no ocurre. Posibles soluciones (no aplicadas): un `.gitattributes` que fije `eol=lf` para `resultados/**`, o calcular los hashes sobre el contenido con los finales de línea normalizados. Para esta reevaluación se usó una exportación de git con LF (`git -c core.autocrlf=false archive`), que representa fielmente lo publicado.
+En el CI de Linux no ocurre. Corrección posterior a esta ejecución: se añadió `.gitattributes` para fijar `eol=lf` en la evidencia textual de `resultados/`. Los binarios y los hashes publicados se conservan; la auditoría continúa comprobando bytes exactos. Para una copia existente con CRLF, conservar los cambios locales y usar una copia nueva o una exportación de la versión actual. No basta con añadir el archivo de atributos para cambiar los bytes de un checkout ya existente. Para esta reevaluación se usó una exportación de git con LF (`git -c core.autocrlf=false archive`), que representa fielmente lo publicado.
 
 ### 4.2 Acceso a Drive
 
-El enlace publicado exige iniciar sesión. Si debe servir a terceros, conviene darle acceso de lectura a quien tenga el enlace.
+En esta sesión se solicitó iniciar sesión. La revisión previa sí descargó los seis modelos y comprobó sus hashes, según `../Objetivos_4_y_5_comparacion/VERIFICACION_MODELOS.md`. La diferencia de acceso entre sesiones no demuestra por sí sola un cambio de permisos; conviene comprobar la descarga desde otra sesión antes de atribuirla a la configuración de uso compartido.
 
 ## 5. Límites del protocolo (sin cambios respecto a la PR #26)
 
