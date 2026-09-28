@@ -1,0 +1,153 @@
+{
+  "protocolo": {
+    "objetos_por_clase": 10,
+    "descripcion": "Un solo proceso, sin DataLoader ni workers, un objeto a la vez (batch 1). Cada objeto parte de su archivo .npz del octree. Se descartan 10 objetos de calentamiento."
+  },
+  "entorno": {
+    "sistema": "Windows 11 (10.0.26100)",
+    "cpu": "AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD",
+    "nucleos_logicos": 16,
+    "python": "3.14.4",
+    "scikit_learn": "1.9.0",
+    "numpy": "2.4.6",
+    "pytorch": "2.11.0+cu128",
+    "gpu": "NVIDIA GeForce RTX 5070",
+    "hilos_torch_cpu": 1
+  },
+  "resoluciones": {
+    "32": {
+      "n_objetos": 400,
+      "tiempos_ms": {
+        "hce_carga_ms": {
+          "mediana": 7.928250000986736,
+          "media": 9.577844749892392,
+          "p95": 19.51724000246031
+        },
+        "hce_descriptores_ms": {
+          "mediana": 4.8696999983803835,
+          "media": 5.4816165000193,
+          "p95": 11.785174998658443
+        },
+        "svm_clasificador_ms": {
+          "mediana": 0.8151500005624257,
+          "media": 0.8426619998681417,
+          "p95": 0.9859400051936973
+        },
+        "rf_clasificador_ms": {
+          "mediana": 5.828650002513314,
+          "media": 5.973739500132069,
+          "p95": 6.750195002314282
+        },
+        "net5_carga_ms": {
+          "mediana": 6.909950003318954,
+          "media": 8.136290999900666,
+          "p95": 15.493125001376002
+        },
+        "net5_preparacion_ms": {
+          "mediana": 35.48159999991185,
+          "media": 37.90955800031952,
+          "p95": 68.04113000143838
+        },
+        "net5_forward_gpu_ms": {
+          "mediana": 5.5863499983388465,
+          "media": 6.009103249998589,
+          "p95": 7.6147600033436875
+        },
+        "net5_forward_cpu_ms": {
+          "mediana": 108.92920000333106,
+          "media": 116.31116649987234,
+          "p95": 225.7525549972342
+        },
+        "svm_total_ms": {
+          "mediana": 13.611149999633199,
+          "media": 15.902123249779834,
+          "p95": 34.98585000379531
+        },
+        "rf_total_ms": {
+          "mediana": 18.686400002479786,
+          "media": 21.03320075004376,
+          "p95": 39.82415499995109
+        },
+        "net5_gpu_total_ms": {
+          "mediana": 48.30050000236952,
+          "media": 52.054952250218776,
+          "p95": 91.50732500529556
+        },
+        "net5_cpu_total_ms": {
+          "mediana": 153.2010500013712,
+          "media": 162.35701550009253,
+          "p95": 310.30308500667144
+        }
+      },
+      "net5_gpu_igual_cpu": 1.0,
+      "n_hojas_media": 3579.3825
+    },
+    "64": {
+      "n_objetos": 400,
+      "tiempos_ms": {
+        "hce_carga_ms": {
+          "mediana": 27.293849998386577,
+          "media": 31.07960400002412,
+          "p95": 71.9895000005634
+        },
+        "hce_descriptores_ms": {
+          "mediana": 22.7645000013581,
+          "media": 23.526287999829947,
+          "p95": 45.95417999844356
+        },
+        "svm_clasificador_ms": {
+          "mediana": 0.8383500025956891,
+          "media": 0.8553440002833668,
+          "p95": 0.9673900010966461
+        },
+        "rf_clasificador_ms": {
+          "mediana": 5.79479999942123,
+          "media": 5.88721699989037,
+          "p95": 6.412145002468605
+        },
+        "net5_carga_ms": {
+          "mediana": 24.542849998397287,
+          "media": 27.737738999931025,
+          "p95": 67.88771499850554
+        },
+        "net5_preparacion_ms": {
+          "mediana": 180.22114999985206,
+          "media": 193.35609600013413,
+          "p95": 355.14730999711895
+        },
+        "net5_forward_gpu_ms": {
+          "mediana": 9.895749997667735,
+          "media": 10.65886850015886,
+          "p95": 16.754310001124345
+        },
+        "net5_forward_cpu_ms": {
+          "mediana": 379.5039500000712,
+          "media": 419.0260564998789,
+          "p95": 804.6718699995834
+        },
+        "svm_total_ms": {
+          "mediana": 51.52989999987767,
+          "media": 55.46123600013743,
+          "p95": 121.51038000338303
+        },
+        "rf_total_ms": {
+          "mediana": 56.776700002956204,
+          "media": 60.493108999744436,
+          "p95": 126.26617000496479
+        },
+        "net5_gpu_total_ms": {
+          "mediana": 217.51649999350775,
+          "media": 231.75270350022402,
+          "p95": 441.8601750043308
+        },
+        "net5_cpu_total_ms": {
+          "mediana": 587.0506999999634,
+          "media": 640.1198914999441,
+          "p95": 1218.7841050050326
+        }
+      },
+      "net5_gpu_igual_cpu": 1.0,
+      "n_hojas_media": 15309.965
+    }
+  }
+}

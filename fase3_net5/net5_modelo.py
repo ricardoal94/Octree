@@ -1,10 +1,9 @@
-"""Contrato del modelo profundo y referencia densa de la Tabla 5.
+"""Net5-Octree nativo y referencia densa de la Tabla 5.
 
-La clase incluida en este archivo usa ``torch.nn.Conv3d`` sobre tensores
-densos. Sirve para verificar la topologia de capacidad fija de la Tabla 5,
-pero no es OctNet: el articulo define sus operaciones directamente sobre la
-estructura grid-octree. Por tanto, esta referencia no puede producir los
-resultados oficiales del objetivo 3.
+``Net5Octree`` ejecuta convolucion y pooling sobre la estructura dispersa
+grid-octree mediante :mod:`octnet_backend`. ``DenseTabla5Reference`` conserva
+la misma topologia con ``torch.nn.Conv3d`` exclusivamente para diagnosticos y
+no puede producir resultados oficiales del objetivo 3.
 
 Fuente de la arquitectura
 --------------------------
@@ -42,7 +41,7 @@ y se aplican en los ULTIMOS N_pool bloques:
     R=64^3 (N_pool=3): bloques 1-2 sin pool, pool tras bloques 3, 4 y 5
                        64 -> 64 -> 64 -> 32 -> 16 -> 8
 
-Adaptaciones diagnosticas respecto al paper original:
+Adaptaciones del proyecto respecto al paper original:
   - Canales de entrada: 4 (ocupacion + normal promedio nx, ny, nz) en
     vez de 1 (solo ocupacion binaria), acorde a la codificacion de hojas
     definida en la Fase 2 (preprocesar_octrees.py / octree_real.py).
@@ -56,6 +55,19 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+try:
+    from .octnet_backend import (
+        ConvolucionOctree3x3,
+        LoteGridOctree,
+        MaxPoolOctree2,
+    )
+except ImportError:  # Ejecucion directa desde fase3_net5/
+    from octnet_backend import (
+        ConvolucionOctree3x3,
+        LoteGridOctree,
+        MaxPoolOctree2,
+    )
 
 
 # ──────────────────────────────────────────────────────────────
@@ -188,21 +200,82 @@ class DenseTabla5Reference(nn.Module):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 
-class Net5Octree(nn.Module):
-    """Compatibilidad de importación para scripts históricos.
+class BloqueConvOctree(nn.Module):
+    """Dos convoluciones OctNet con ReLU y max-pooling opcional."""
 
-    La clase anterior tenía este nombre aunque ejecutaba ``nn.Conv3d``. Se
-    conserva únicamente para que esos scripts fallen con un diagnóstico
-    explícito en vez de un ``ImportError`` o, peor, produzcan resultados
-    densos etiquetados como OctNet.
+    def __init__(self, in_ch: int, mid_ch: int, out_ch: int, con_pool: bool):
+        super().__init__()
+        self.conv_a = ConvolucionOctree3x3(in_ch, mid_ch)
+        self.conv_b = ConvolucionOctree3x3(mid_ch, out_ch)
+        self.pool = MaxPoolOctree2() if con_pool else None
+
+    def forward(self, lote: LoteGridOctree) -> LoteGridOctree:
+        lote = self.conv_a(lote)
+        lote = lote.con_atributos(F.relu(lote.atributos))
+        lote = self.conv_b(lote)
+        lote = lote.con_atributos(F.relu(lote.atributos))
+        if self.pool is not None:
+            lote = self.pool(lote)
+        return lote
+
+
+class Net5Octree(nn.Module):
+    """Net5 de capacidad fija sobre el backend grid-octree disperso.
+
+    La topologia y los canales corresponden a la Tabla 5. R=32 aplica
+    pooling tras los bloques 4 y 5; R=64, tras los bloques 3, 4 y 5. Ambas
+    variantes llegan a 8^3 y tienen exactamente los mismos parametros.
     """
 
-    def __init__(self, *_args, **_kwargs):
+    RESOLUCION_BASE = 8
+
+    def __init__(self, resolucion: int = 32, num_clases: int = 40,
+                 dropout: float = 0.5, in_channels: int = 4):
         super().__init__()
-        raise NotImplementedError(
-            "Net5Octree requiere el backend OctNet nativo, aún pendiente. "
-            "Use DenseTabla5Reference solo para diagnósticos no oficiales."
-        )
+        if resolucion not in (32, 64):
+            raise ValueError("Resolucion debe ser 32 o 64")
+        self.resolucion = int(resolucion)
+        self.num_clases = int(num_clases)
+        self.n_pool = int(round(math.log2(resolucion / self.RESOLUCION_BASE)))
+
+        bloques = []
+        canal_in = in_channels
+        n_bloques = len(_CANALES_BLOQUES)
+        for i, (mid, out) in enumerate(_CANALES_BLOQUES):
+            bloque_idx = i + 1
+            con_pool = bloque_idx > (n_bloques - self.n_pool)
+            bloques.append(BloqueConvOctree(canal_in, mid, out, con_pool))
+            canal_in = out
+        self.bloques = nn.ModuleList(bloques)
+
+        canal_final = _CANALES_BLOQUES[-1][1]
+        self.dim_fc = canal_final * (self.RESOLUCION_BASE ** 3)
+        self.dropout = nn.Dropout(p=dropout)
+        self.fc1 = nn.Linear(self.dim_fc, 512)
+        self.fc2 = nn.Linear(512, num_clases)
+        nn.init.xavier_normal_(self.fc1.weight)
+        nn.init.zeros_(self.fc1.bias)
+        nn.init.xavier_normal_(self.fc2.weight)
+        nn.init.zeros_(self.fc2.bias)
+
+    def forward(self, lote: LoteGridOctree) -> torch.Tensor:
+        if not isinstance(lote, LoteGridOctree):
+            raise TypeError("Net5Octree requiere un LoteGridOctree disperso")
+        if lote.resolucion != self.resolucion:
+            raise ValueError(
+                f"El modelo R={self.resolucion} recibio un lote "
+                f"R={lote.resolucion}"
+            )
+        for bloque in self.bloques:
+            lote = bloque(lote)
+        x = lote.tensor_final_8()
+        x = x.flatten(1)
+        x = self.dropout(x)
+        x = F.relu(self.fc1(x))
+        return self.fc2(x)
+
+    def contar_parametros(self) -> int:
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -242,13 +315,29 @@ def crear_modelo_denso_referencia(
     return modelo, device
 
 
-def crear_modelo(*_args, **_kwargs):
-    """Evita presentar accidentalmente la referencia densa como OctNet."""
-    raise NotImplementedError(
-        "El backend OctNet nativo aun no esta implementado. "
-        "La referencia con nn.Conv3d solo puede crearse mediante "
-        "crear_modelo_denso_referencia() para pruebas diagnosticas."
-    )
+def crear_modelo(
+    resolucion: int = 32,
+    num_clases: int = 40,
+    dropout: float = 0.5,
+    device: torch.device = None,
+) -> tuple:
+    """Crea el modelo oficial con operaciones directas sobre grid-octrees."""
+
+    if device is None:
+        device = get_device()
+    modelo = Net5Octree(
+        resolucion=resolucion,
+        num_clases=num_clases,
+        dropout=dropout,
+    ).to(device)
+    params = modelo.contar_parametros()
+    print("\n[Modelo] Net5-Octree nativo creado:")
+    print(f"  Resolucion    : {resolucion}^3  (maxpools={modelo.n_pool})")
+    print(f"  Clases        : {num_clases}")
+    print(f"  Dropout       : {dropout}")
+    print(f"  Parametros    : {params:,}")
+    print(f"  Dispositivo   : {device}")
+    return modelo, device
 
 
 # ──────────────────────────────────────────────────────────────

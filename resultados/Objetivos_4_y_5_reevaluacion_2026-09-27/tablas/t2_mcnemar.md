@@ -1,0 +1,11 @@
+| Comparación (A vs B) | Solo A acierta | Solo B acierta | p (McNemar exacto) | Diferencia significativa (α = 0.05) |
+|---|---|---|---|---|
+| Net5-Octree vs SVM (R32) | 297 | 142 | 1.1e-13 | sí |
+| Net5-Octree vs Bosque aleatorio (R32) | 282 | 138 | 1.8e-12 | sí |
+| Bosque aleatorio vs SVM (R32) | 178 | 167 | 0.59 | no |
+| Net5-Octree vs SVM (R64) | 289 | 140 | 5.3e-13 | sí |
+| Net5-Octree vs Bosque aleatorio (R64) | 293 | 144 | 8.7e-13 | sí |
+| Bosque aleatorio vs SVM (R64) | 158 | 158 | 1 | no |
+| SVM: R64 vs R32 | 110 | 79 | 0.029 | sí |
+| Bosque aleatorio: R64 vs R32 | 102 | 82 | 0.16 | no |
+| Net5-Octree: R64 vs R32 | 125 | 100 | 0.11 | no |

@@ -1,0 +1,85 @@
+{
+  "fecha": "2026-09-27",
+  "codigo_verificado": "958793db4b4608bc3c7bae971a44551a02b65652",
+  "entorno": {
+    "python": "3.12.14",
+    "numpy": "2.3.5",
+    "sklearn": "1.8.0",
+    "torch": "2.14.0+cpu"
+  },
+  "alcance": "Inferencia HCE con descriptores publicados; integridad y carga estricta Net5. Sin regenerar descriptores ni ejecutar inferencia Net5.",
+  "modelos": [
+    {
+      "metodo": "svm",
+      "resolucion": 32,
+      "sha256": "71bf69aaf0cf5af3074318dfbf40a0fdc0fe3545cb457a6b0d91559d95d7a6ed",
+      "hash_coincide": true,
+      "n_test": 2468,
+      "diferencias_predicciones": 0,
+      "exactitud": 0.7593192868719612,
+      "advertencias": [
+        "Trying to unpickle estimator Pipeline from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations",
+        "Trying to unpickle estimator SVC from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations",
+        "Trying to unpickle estimator StandardScaler from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations"
+      ]
+    },
+    {
+      "metodo": "rf",
+      "resolucion": 32,
+      "sha256": "be811a9892847f0661f15f1182b41aa485ea99b80bdb6356c2b6898fe91db7e7",
+      "hash_coincide": true,
+      "n_test": 2468,
+      "diferencias_predicciones": 0,
+      "exactitud": 0.763776337115073,
+      "advertencias": [
+        "Trying to unpickle estimator DecisionTreeClassifier from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations",
+        "Trying to unpickle estimator RandomForestClassifier from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations"
+      ]
+    },
+    {
+      "metodo": "net5",
+      "resolucion": 32,
+      "sha256": "bb9b85d90290b32def007868c7eca4c92e826d845e1f6bf54ec9774860d1cc84",
+      "hash_coincide": true,
+      "carga_estricta": true,
+      "pesos_finitos": true,
+      "inferencia_repetida": false
+    },
+    {
+      "metodo": "svm",
+      "resolucion": 64,
+      "sha256": "bbbe1645b6d1116f49f02927016a48b03db22b1a5fb2ed2832c360961f44332e",
+      "hash_coincide": true,
+      "n_test": 2468,
+      "diferencias_predicciones": 0,
+      "exactitud": 0.7718800648298217,
+      "advertencias": [
+        "Trying to unpickle estimator Pipeline from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations",
+        "Trying to unpickle estimator SVC from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations",
+        "Trying to unpickle estimator StandardScaler from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations"
+      ]
+    },
+    {
+      "metodo": "rf",
+      "resolucion": 64,
+      "sha256": "a5890c3099002f9c1abf9d39b2c57c8d532e8e27f612e52d8985637a6a71b4a2",
+      "hash_coincide": true,
+      "n_test": 2468,
+      "diferencias_predicciones": 0,
+      "exactitud": 0.7718800648298217,
+      "advertencias": [
+        "Trying to unpickle estimator DecisionTreeClassifier from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations",
+        "Trying to unpickle estimator RandomForestClassifier from version 1.9.0 when using version 1.8.0. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:\nhttps://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations"
+      ]
+    },
+    {
+      "metodo": "net5",
+      "resolucion": 64,
+      "sha256": "dfd7808e668b8f3b6cd4c761a6e1b363a75da828c1786924602148603eab6327",
+      "hash_coincide": true,
+      "carga_estricta": true,
+      "pesos_finitos": true,
+      "inferencia_repetida": false
+    }
+  ]
+}

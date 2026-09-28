@@ -1,0 +1,7 @@
+# Mantener los bytes de la evidencia textual al clonar en Windows.
+# No normalizar archivos binarios ni relajar la verificacion SHA-256.
+resultados/**/*.json text eol=lf
+resultados/**/*.csv text eol=lf
+resultados/**/*.md text eol=lf
+resultados/**/*.txt text eol=lf
+resultados/**/*.log text eol=lf

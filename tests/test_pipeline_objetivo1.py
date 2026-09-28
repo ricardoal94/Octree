@@ -1,8 +1,10 @@
 import json
+import shutil
+import sys
 from pathlib import Path
 
 from octree_real import OCTREE_FORMAT_VERSION, leer_metadatos_octree
-from preprocesar_octrees import procesar_modelo, seleccionar_muestra_controlada
+from preprocesar_octrees import main, procesar_modelo, seleccionar_muestra_controlada
 
 
 def test_muestra_controlada_es_balanceada_y_determinista():
@@ -60,3 +62,39 @@ def test_pipeline_genera_npz_manifiesto_y_metricas(tmp_path: Path):
         metadatos = leer_metadatos_octree(ruta_npz)
         assert metadatos["model_id"] == "chair_control"
         assert metadatos["resolucion"] == int(resolucion)
+
+
+def test_main_admite_dataset_y_salida_fuera_del_proyecto(
+    tmp_path: Path, monkeypatch,
+):
+    fixture = Path(__file__).parent / "fixtures" / "tetrahedron.off"
+    dataset_root = tmp_path / "datos_externos" / "ModelNet40"
+    modelo = dataset_root / "chair" / "train" / "chair_control.off"
+    modelo.parent.mkdir(parents=True)
+    shutil.copy2(fixture, modelo)
+
+    output_root = tmp_path / "salidas_externas" / "octrees"
+    resultados_dir = tmp_path / "resultados_externos" / "objetivo1"
+    monkeypatch.setattr(sys, "argv", [
+        "preprocesar_octrees.py",
+        "--dataset-root", str(dataset_root),
+        "--output-root", str(output_root),
+        "--resultados-dir", str(resultados_dir),
+        "--resoluciones", "32",
+        "--splits", "train",
+        "--categorias", "chair",
+        "--limite", "1",
+        "--n-puntos", "100",
+        "--procesos", "1",
+    ])
+
+    assert main() == 0
+    with (resultados_dir / "resumen_ejecucion.json").open(
+        encoding="utf-8",
+    ) as archivo:
+        resumen = json.load(archivo)
+
+    assert resumen["dataset_root"] == "ModelNet40"
+    assert resumen["output_root"] == "octrees"
+    assert resumen["n_modelos_exitosos"] == 1
+    assert resumen["n_modelos_fallidos"] == 0

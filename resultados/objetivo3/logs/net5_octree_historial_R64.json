@@ -1,0 +1,353 @@
+[
+  {
+    "epoca": 1,
+    "train_loss": 1.175827,
+    "train_acc": 0.689095,
+    "val_loss": 0.796019,
+    "val_acc": 0.77665,
+    "lr": 0.0001,
+    "tiempo_s": 739.35
+  },
+  {
+    "epoca": 2,
+    "train_loss": 0.546611,
+    "train_acc": 0.84816,
+    "val_loss": 0.686187,
+    "val_acc": 0.8,
+    "lr": 0.0001,
+    "tiempo_s": 753.97
+  },
+  {
+    "epoca": 3,
+    "train_loss": 0.346288,
+    "train_acc": 0.894333,
+    "val_loss": 0.626363,
+    "val_acc": 0.818274,
+    "lr": 0.0001,
+    "tiempo_s": 752.96
+  },
+  {
+    "epoca": 4,
+    "train_loss": 0.236917,
+    "train_acc": 0.926507,
+    "val_loss": 0.767788,
+    "val_acc": 0.809137,
+    "lr": 0.0001,
+    "tiempo_s": 758.66
+  },
+  {
+    "epoca": 5,
+    "train_loss": 0.198962,
+    "train_acc": 0.942989,
+    "val_loss": 0.657125,
+    "val_acc": 0.822335,
+    "lr": 0.0001,
+    "tiempo_s": 667.22
+  },
+  {
+    "epoca": 6,
+    "train_loss": 0.158673,
+    "train_acc": 0.952472,
+    "val_loss": 0.642027,
+    "val_acc": 0.833503,
+    "lr": 0.0001,
+    "tiempo_s": 656.7
+  },
+  {
+    "epoca": 7,
+    "train_loss": 0.139625,
+    "train_acc": 0.956311,
+    "val_loss": 0.736188,
+    "val_acc": 0.836548,
+    "lr": 0.0001,
+    "tiempo_s": 645.05
+  },
+  {
+    "epoca": 8,
+    "train_loss": 0.123413,
+    "train_acc": 0.962294,
+    "val_loss": 0.730374,
+    "val_acc": 0.825381,
+    "lr": 0.0001,
+    "tiempo_s": 649.1
+  },
+  {
+    "epoca": 9,
+    "train_loss": 0.108152,
+    "train_acc": 0.967148,
+    "val_loss": 0.877605,
+    "val_acc": 0.822335,
+    "lr": 0.0001,
+    "tiempo_s": 655.57
+  },
+  {
+    "epoca": 10,
+    "train_loss": 0.103969,
+    "train_acc": 0.967713,
+    "val_loss": 0.791089,
+    "val_acc": 0.829442,
+    "lr": 0.0001,
+    "tiempo_s": 675.27
+  },
+  {
+    "epoca": 11,
+    "train_loss": 0.096357,
+    "train_acc": 0.971212,
+    "val_loss": 0.800084,
+    "val_acc": 0.847716,
+    "lr": 0.0001,
+    "tiempo_s": 728.15
+  },
+  {
+    "epoca": 12,
+    "train_loss": 0.088157,
+    "train_acc": 0.97189,
+    "val_loss": 0.855915,
+    "val_acc": 0.84264,
+    "lr": 0.0001,
+    "tiempo_s": 764.36
+  },
+  {
+    "epoca": 13,
+    "train_loss": 0.083876,
+    "train_acc": 0.975954,
+    "val_loss": 0.755793,
+    "val_acc": 0.826396,
+    "lr": 0.0001,
+    "tiempo_s": 710.75
+  },
+  {
+    "epoca": 14,
+    "train_loss": 0.08269,
+    "train_acc": 0.974261,
+    "val_loss": 0.818018,
+    "val_acc": 0.833503,
+    "lr": 0.0001,
+    "tiempo_s": 727.85
+  },
+  {
+    "epoca": 15,
+    "train_loss": 0.083573,
+    "train_acc": 0.974486,
+    "val_loss": 0.90741,
+    "val_acc": 0.82335,
+    "lr": 0.0001,
+    "tiempo_s": 694.75
+  },
+  {
+    "epoca": 16,
+    "train_loss": 0.079846,
+    "train_acc": 0.975728,
+    "val_loss": 1.022596,
+    "val_acc": 0.84264,
+    "lr": 0.0001,
+    "tiempo_s": 690.05
+  },
+  {
+    "epoca": 17,
+    "train_loss": 0.072283,
+    "train_acc": 0.977873,
+    "val_loss": 0.645989,
+    "val_acc": 0.835533,
+    "lr": 0.0001,
+    "tiempo_s": 749.28
+  },
+  {
+    "epoca": 18,
+    "train_loss": 0.072128,
+    "train_acc": 0.977196,
+    "val_loss": 0.875801,
+    "val_acc": 0.847716,
+    "lr": 0.0001,
+    "tiempo_s": 753.9
+  },
+  {
+    "epoca": 19,
+    "train_loss": 0.074071,
+    "train_acc": 0.97855,
+    "val_loss": 0.706262,
+    "val_acc": 0.854822,
+    "lr": 0.0001,
+    "tiempo_s": 754.64
+  },
+  {
+    "epoca": 20,
+    "train_loss": 0.069585,
+    "train_acc": 0.979341,
+    "val_loss": 0.691972,
+    "val_acc": 0.831472,
+    "lr": 7e-05,
+    "tiempo_s": 758.41
+  },
+  {
+    "epoca": 21,
+    "train_loss": 0.050532,
+    "train_acc": 0.983856,
+    "val_loss": 0.859182,
+    "val_acc": 0.826396,
+    "lr": 7e-05,
+    "tiempo_s": 753.94
+  },
+  {
+    "epoca": 22,
+    "train_loss": 0.046727,
+    "train_acc": 0.984647,
+    "val_loss": 0.779156,
+    "val_acc": 0.84467,
+    "lr": 7e-05,
+    "tiempo_s": 749.23
+  },
+  {
+    "epoca": 23,
+    "train_loss": 0.042681,
+    "train_acc": 0.988372,
+    "val_loss": 0.735866,
+    "val_acc": 0.849746,
+    "lr": 7e-05,
+    "tiempo_s": 750.33
+  },
+  {
+    "epoca": 24,
+    "train_loss": 0.039847,
+    "train_acc": 0.986566,
+    "val_loss": 0.804419,
+    "val_acc": 0.839594,
+    "lr": 7e-05,
+    "tiempo_s": 755.02
+  },
+  {
+    "epoca": 25,
+    "train_loss": 0.039936,
+    "train_acc": 0.988033,
+    "val_loss": 0.858751,
+    "val_acc": 0.849746,
+    "lr": 7e-05,
+    "tiempo_s": 750.11
+  },
+  {
+    "epoca": 26,
+    "train_loss": 0.042182,
+    "train_acc": 0.986227,
+    "val_loss": 0.841149,
+    "val_acc": 0.843655,
+    "lr": 7e-05,
+    "tiempo_s": 790.84
+  },
+  {
+    "epoca": 27,
+    "train_loss": 0.038709,
+    "train_acc": 0.987469,
+    "val_loss": 0.754585,
+    "val_acc": 0.851777,
+    "lr": 7e-05,
+    "tiempo_s": 768.77
+  },
+  {
+    "epoca": 28,
+    "train_loss": 0.039665,
+    "train_acc": 0.988033,
+    "val_loss": 0.971379,
+    "val_acc": 0.832487,
+    "lr": 7e-05,
+    "tiempo_s": 764.99
+  },
+  {
+    "epoca": 29,
+    "train_loss": 0.039845,
+    "train_acc": 0.987356,
+    "val_loss": 1.015383,
+    "val_acc": 0.843655,
+    "lr": 7e-05,
+    "tiempo_s": 771.57
+  },
+  {
+    "epoca": 30,
+    "train_loss": 0.039592,
+    "train_acc": 0.989275,
+    "val_loss": 0.926758,
+    "val_acc": 0.84264,
+    "lr": 7e-05,
+    "tiempo_s": 763.85
+  },
+  {
+    "epoca": 31,
+    "train_loss": 0.042014,
+    "train_acc": 0.987469,
+    "val_loss": 0.864537,
+    "val_acc": 0.839594,
+    "lr": 7e-05,
+    "tiempo_s": 747.64
+  },
+  {
+    "epoca": 32,
+    "train_loss": 0.041101,
+    "train_acc": 0.988824,
+    "val_loss": 0.839325,
+    "val_acc": 0.831472,
+    "lr": 7e-05,
+    "tiempo_s": 746.94
+  },
+  {
+    "epoca": 33,
+    "train_loss": 0.039851,
+    "train_acc": 0.988259,
+    "val_loss": 0.924644,
+    "val_acc": 0.840609,
+    "lr": 7e-05,
+    "tiempo_s": 747.07
+  },
+  {
+    "epoca": 34,
+    "train_loss": 0.037151,
+    "train_acc": 0.988485,
+    "val_loss": 0.916044,
+    "val_acc": 0.838579,
+    "lr": 7e-05,
+    "tiempo_s": 730.66
+  },
+  {
+    "epoca": 35,
+    "train_loss": 0.033685,
+    "train_acc": 0.988824,
+    "val_loss": 0.988141,
+    "val_acc": 0.835533,
+    "lr": 7e-05,
+    "tiempo_s": 690.83
+  },
+  {
+    "epoca": 36,
+    "train_loss": 0.035868,
+    "train_acc": 0.989162,
+    "val_loss": 0.894417,
+    "val_acc": 0.835533,
+    "lr": 7e-05,
+    "tiempo_s": 760.6
+  },
+  {
+    "epoca": 37,
+    "train_loss": 0.037321,
+    "train_acc": 0.988146,
+    "val_loss": 0.923957,
+    "val_acc": 0.84264,
+    "lr": 7e-05,
+    "tiempo_s": 762.31
+  },
+  {
+    "epoca": 38,
+    "train_loss": 0.03616,
+    "train_acc": 0.989275,
+    "val_loss": 1.077036,
+    "val_acc": 0.851777,
+    "lr": 7e-05,
+    "tiempo_s": 760.1
+  },
+  {
+    "epoca": 39,
+    "train_loss": 0.036382,
+    "train_acc": 0.989388,
+    "val_loss": 0.941665,
+    "val_acc": 0.84264,
+    "lr": 7e-05,
+    "tiempo_s": 760.53
+  }
+]
