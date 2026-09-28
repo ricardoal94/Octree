@@ -2,17 +2,21 @@
 
 ## Estado actual
 
-El backend **OctNet nativo todavía no está implementado**. El código incluido
-en esta carpeta permite probar la topología de capacidad fija de la Tabla 5
-del material suplementario de Riegler, Ulusoy y Geiger (CVPR 2017), pero lo
-hace con `torch.nn.Conv3d` sobre una rejilla densa `(4, R, R, R)`.
+Ya existe un **backend OctNet nativo de referencia** que opera directamente
+sobre hojas jerárquicas y no usa `torch.nn.Conv3d` ni materializa el volumen
+de entrada `(4, R, R, R)`. La implementación está conectada a la topología de
+capacidad fija de la Tabla 5 y al script de entrenamiento.
 
-Por tanto:
+El núcleo geométrico y su equivalencia matemática con convolución y pooling
+densos están cubiertos por pruebas independientes de PyTorch. Todavía faltan
+dos validaciones operativas para cerrar el objetivo:
 
-- la referencia densa no debe denominarse Net5/OctNet en los resultados;
-- sus métricas no son evidencia válida del Objetivo 3;
-- los entrenamientos oficiales deben esperar al backend que opere
-  directamente sobre la jerarquía `grid-octree`.
+- ejecutar en el equipo con PyTorch las pruebas de forward, backward y
+  checkpoint del backend completo;
+- medir su rendimiento y entrenar R=32/R=64 sobre ModelNet40 completo.
+
+La antigua referencia densa se conserva únicamente para diagnóstico y nunca
+debe denominarse Net5/OctNet en los resultados.
 
 El contrato que debe cumplir ese backend está en
 [`CONTRATO_BACKEND_OCTNET.md`](CONTRATO_BACKEND_OCTNET.md).
@@ -24,9 +28,28 @@ La variante de capacidad fija está descrita en la **Tabla 5**, no en la Tabla
 High Resolutions*. La adaptación diagnóstica usa cuatro canales de entrada
 (ocupación y normal promedio) y 40 logits para ModelNet40.
 
-`net5_modelo.py` conserva esa topología únicamente como referencia densa. La
-función genérica `crear_modelo()` falla de forma explícita para impedir que
-esa CNN se presente accidentalmente como OctNet.
+`net5_modelo.py` expone dos rutas separadas:
+
+- `crear_modelo()` construye `Net5Octree` sobre el backend disperso;
+- `crear_modelo_denso_referencia()` construye la referencia diagnóstica con
+  `Conv3d`.
+
+## Conversión al grid-octree
+
+`grid_octree.py` convierte el octree global del Objetivo 1 a la estructura
+híbrida del artículo:
+
+1. R=32 se divide en una rejilla de `4 x 4 x 4` octrees; R=64, en una de
+   `8 x 8 x 8`.
+2. Cada octree de la rejilla tiene profundidad máxima 3 y cubre `8^3`
+   posiciones de la resolución efectiva.
+3. Las ramas podadas del NPZ se recuperan como hojas vacías implícitas; las
+   hojas ocupadas conservan `[ocupación, nx, ny, nz]`.
+4. La convolución 3x3x3 usa intersecciones entre hojas para implementar el
+   promedio de la ecuación 8 sin `oc2ten` materializado.
+5. El max-pooling transforma la jerarquía según la ecuación 10. Solo al llegar
+   a la salida final 8^3 se expande ese pequeño tensor para la capa FC de la
+   Tabla 5.
 
 ## Partición experimental
 
@@ -56,7 +79,14 @@ ejecutan con:
 python -m pytest
 ```
 
-La integración densa con los octrees reales es una prueba local y
+Las pruebas del backend PyTorch se omiten automáticamente si PyTorch no está
+instalado:
+
+```bash
+python -m pytest tests/test_octnet_backend.py -v
+```
+
+La integración densa histórica con los octrees reales sigue siendo local y
 diagnóstica. Si PyTorch o `data/octrees_{32,64}` no están disponibles, pytest
 la omite:
 
@@ -92,12 +122,169 @@ toman simplemente los primeros objetos del test. El informe resultante usa
 el esquema `dense-table5-diagnostic` y nunca debe incorporarse a las tablas
 comparativas del Objetivo 3.
 
+## Smoke test del backend nativo
+
+Antes del entrenamiento completo debe ejecutarse una muestra corta en el
+equipo con PyTorch y los NPZ:
+
+```bash
+python fase3_net5/fase3_net5_entrenamiento.py \
+  --resolucion 32 --backend octree_native --tag _smoke_native \
+  --limite_train 40 --limite_val 40 --limite_test 40 \
+  --epochs 1 --batch_size 1 --num-workers 4 \
+  --exigir-git-limpio --exigir-git-publicado --lotes-perfil 3
+```
+
+Una corrida limitada queda marcada como `PARCIAL_SMOKE`. Solo una corrida
+nativa sin límites puede marcarse como resultado completo del Objetivo 3.
+El backend usa `batch_size=1` de forma predeterminada porque los planes
+dispersos dependen de la topología de cada objeto. Antes de aumentarlo se debe
+comprobar la VRAM con R=64.
+
+Las opciones de trazabilidad capturan la rama, el commit, el upstream y el
+estado del repositorio antes de crear resultados; la corrida se detiene si
+existen cambios locales o si el commit no está publicado. El resumen incluye
+además un bloque `entorno_ejecucion` con sistema operativo, versiones de
+Python, PyTorch, CUDA y cuDNN, modelo de CPU, núcleos lógicos, RAM total y,
+cuando corresponde, nombre, capacidad de cómputo y VRAM de la GPU. No se debe
+completar esta información manualmente. También incluye un
+`perfil_rendimiento` que separa carga del lote, transferencia de atributos,
+preparación y transferencia de planes, y el resto del `forward`.
+Para R=64 se repite el mismo comando cambiando `--resolucion 32` por
+`--resolucion 64`.
+
+La construcción vectorizada de planes evita escanear volúmenes R³. De forma
+predeterminada, los planes se preparan dentro del `DataLoader`; con
+`num_workers > 0` pueden construirse en paralelo antes de que el lote llegue
+al proceso que controla la GPU. Para `batch_size=1`, el backend reutiliza
+directamente los arreglos de cada geometría y evita concatenaciones completas.
+El barrido limita a uno los hilos internos de OpenBLAS, OMP, MKL y NumExpr para
+evitar que cada trabajador multiplique el consumo de memoria. Los trabajadores
+de entrenamiento y validación se cierran al terminar cada recorrido; solo los
+de test permanecen activos porque ese cargador se reutiliza en las mediciones.
+
+El resumen separa dos medidas: `tiempo_inferencia_promedio_ms` incluye solo el
+`forward`, mientras `tiempo_pipeline_promedio_ms` incluye carga, preparación
+geométrica, transferencia y `forward`. También registra memoria e
+interacciones de los planes. La opción `--sin-precalcular-planes` se reserva
+para comparar contra la ruta anterior y no se recomienda para las corridas
+completas.
+
+La trazabilidad distingue un árbol limpio de un commit publicado. Para una
+corrida verificable deben usarse conjuntamente `--exigir-git-limpio` y
+`--exigir-git-publicado`; una evaluación completa queda marcada como no válida
+si el commit no aparece en una referencia remota conocida.
+
+Antes de programar las corridas completas se debe comparar el pipeline con
+`num_workers=0`, `4` y `8`. Si la preparación geométrica continúa dominando el
+tiempo aun en paralelo, el siguiente paso técnico será trasladar esa fase a
+una extensión C++/CUDA, sin cambiar la semántica ya validada.
+
+El barrido completo de smoke tests se ejecuta con un solo comando desde la
+raíz del repositorio:
+
+```bash
+python fase3_net5/comparar_workers_octnet.py
+```
+
+El script ejecuta las seis combinaciones R32/R64 por 0/4/8 trabajadores con
+etiquetas independientes, exige un commit limpio y publicado, y comprueba la
+configuración, la trazabilidad y las métricas del backend. Los checkpoints,
+logs y resultados se escriben en la carpeta hermana `<repositorio>_smoke_workers`
+para que la primera corrida no ensucie el repositorio e invalide las demás.
+Al finalizar genera `comparacion_workers_octnet.json` y
+`comparacion_workers_octnet.csv`; ambos incorporan el entorno experimental y
+el JSON registra también el número de trabajadores con menor tiempo integral
+para cada resolución. El validador exige que las seis corridas pertenezcan al
+mismo equipo y entorno de software, de modo que los resúmenes con el contrato
+anterior deben regenerarse y no pueden mezclarse con los nuevos.
+
+Si una ejecución se interrumpe, puede continuarse sin repetir las combinaciones
+que ya sean válidas:
+
+```bash
+python fase3_net5/comparar_workers_octnet.py --continuar
+```
+
+Para auditar resultados existentes sin entrenar de nuevo se usa
+`--solo-validar`; para revisar los seis comandos sin ejecutarlos se usa
+`--mostrar-comandos`.
+
+## Entrenamientos oficiales R32/R64
+
+Los entrenamientos completos se orquestan con
+`ejecutar_objetivo3_net5.py`. El ejecutor exige previamente un barrido de
+workers que cumpla el contrato vigente, pertenezca al mismo commit y haya sido
+generado en el mismo entorno de hardware y software. El número de workers no
+se escribe manualmente: se toma de la selección por menor tiempo integral del
+barrido validado.
+
+Primero debe regenerarse la evidencia corta después de publicar cualquier
+cambio del código:
+
+```powershell
+python fase3_net5/comparar_workers_octnet.py `
+  --artefactos-dir ..\Tesis_smoke_workers_obj3_final
+```
+
+Después se ejecutan las dos corridas oficiales, sin límites de muestras ni
+etiquetas de smoke:
+
+```powershell
+python fase3_net5/ejecutar_objetivo3_net5.py `
+  --barrido-dir ..\Tesis_smoke_workers_obj3_final `
+  --artefactos-dir ..\Tesis_objetivo3_oficial
+```
+
+Los checkpoints, historiales y resultados quedan fuera del repositorio. El
+protocolo predeterminado usa 200 épocas máximas, `patience=20`, `batch_size=1`,
+Adam con `lr=0.001`, `StepLR(step_size=20, gamma=0.7)` y la partición con
+semilla 42 usada por el enfoque HCE.
+
+Al terminar cada época se guarda de forma atómica un checkpoint de
+continuación con el modelo actual, optimizador, scheduler, early stopping,
+historial, tiempo acumulado y estados aleatorios. Si Windows se reinicia o la
+corrida se interrumpe, el mismo flujo se retoma con:
+
+```powershell
+python fase3_net5/ejecutar_objetivo3_net5.py `
+  --barrido-dir ..\Tesis_smoke_workers_obj3_final `
+  --artefactos-dir ..\Tesis_objetivo3_oficial `
+  --continuar
+```
+
+La reanudación se rechaza si cambian el commit, el entorno, el manifiesto, las
+cantidades de muestras o los hiperparámetros. Una resolución ya finalizada y
+válida se omite; una incompleta continúa desde su última época cerrada.
+
+El ejecutor valida automáticamente que ambos resúmenes:
+
+- tengan alcance `COMPLETO` y sean válidos para el Objetivo 3;
+- usen 8.858 muestras de entrenamiento, 985 de validación y las 2.468 de test;
+- compartan commit, entorno, semilla, manifiesto y contrato experimental;
+- contengan matrices de confusión 40x40 consistentes con el reporte por clase;
+- registren exactitud, pérdida, tiempos, VRAM, tamaño del modelo y perfil del
+  pipeline con valores finitos;
+- utilicen los workers seleccionados por el barrido.
+
+La evidencia consolidada queda en:
+
+```text
+..\Tesis_objetivo3_oficial\resultados\validacion_objetivo3_net5.json
+..\Tesis_objetivo3_oficial\resultados\resumen_objetivo3_net5.csv
+```
+
+Para auditar artefactos ya existentes sin ejecutar entrenamiento se agrega
+`--solo-validar`; `--mostrar-comandos` permite revisar las dos invocaciones
+previstas.
+
 ## Pendiente para cerrar el Objetivo 3
 
-1. Implementar o integrar operaciones de convolución, pooling y unpooling
-   directamente sobre el `grid-octree`.
-2. Conectar la topología de capacidad fija de la Tabla 5 a ese backend.
-3. Verificar forward, backward, checkpoint y consumo de memoria sin expandir
-   las entradas a `R³`.
-4. Entrenar R=32 y R=64 completos con el mismo manifiesto del Objetivo 2.
-5. Evaluar las 2.468 muestras del test oficial y generar evidencia trazable.
+1. Regenerar en la máquina de entrenamiento el barrido corto con el contrato
+   de entorno y reanudación vigente.
+2. Ejecutar mediante el orquestador los entrenamientos completos R=32 y R=64.
+3. Revisar la evidencia consolidada de las 2.468 muestras del test oficial.
+
+El unpooling descrito por el artículo no forma parte de Net5 de clasificación
+y por eso no se incluye en esta ruta. Será necesario únicamente si se adopta
+una arquitectura de decodificación o segmentación.

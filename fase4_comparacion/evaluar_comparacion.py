@@ -12,9 +12,9 @@ repositorio. Etapas (se pueden ejecutar por separado):
   analisis      Metricas, intervalos de confianza, McNemar, errores y costo
                 de los datos por resolucion.
 
-Los modelos, datos y resultados viven fuera del repositorio, en la carpeta
-de la comparacion (``--carpeta``, por defecto ``../Objetivos_4_y_5_comparacion``
-junto al repositorio), con esta estructura:
+Los modelos, datos y resultados se buscan en la carpeta
+de la comparacion (``--carpeta``, por defecto ``resultados/Objetivos_4_y_5_comparacion``
+del repositorio), con esta estructura:
     modelos/hce/, modelos/net5/, datos/, resultados/oficiales/
 
 Uso (desde la raiz del repositorio, con su venv):
@@ -37,10 +37,14 @@ import time
 from ctypes import wintypes
 from pathlib import Path
 
+# Fijar los hilos antes de importar bibliotecas numericas.
+for _variable in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+    os.environ[_variable] = "1"
+
 import numpy as np
 
 RAIZ_REPO = Path(__file__).resolve().parent.parent
-CARPETA_DEFECTO = RAIZ_REPO.parent / "Objetivos_4_y_5_comparacion"
+CARPETA_DEFECTO = RAIZ_REPO / "resultados" / "Objetivos_4_y_5_comparacion"
 CARPETA = CARPETA_DEFECTO
 MODELOS = CARPETA / "modelos"
 DATOS = CARPETA / "datos"
@@ -139,6 +143,7 @@ def etapa_predicciones(repo: Path) -> None:
     from torch.utils.data import DataLoader
     from net5_dataset_octree import OctreeNativeDataset, collate_grid_octree
 
+    discrepancias = []
     oficiales = RESULTADOS / "oficiales"
     for R in RESOLUCIONES:
         _, y, ids = muestras_test(repo, R)
@@ -173,9 +178,13 @@ def etapa_predicciones(repo: Path) -> None:
                "net5": of_net["test_acc"]}
         for clave in ("svm", "rf", "net5"):
             acc = float(np.mean(pred[clave] == y))
-            marca = "OK" if abs(acc - ref[clave]) < 5e-4 else "DIFERENTE"
+            marca = "OK" if abs(acc - ref[clave]) < 5e-7 else "DIFERENTE"
+            if marca != "OK":
+                discrepancias.append(f"R{R} {clave}")
             print(f"R{R} {clave:5s} test acc {acc:.6f} | oficial {ref[clave]:.6f} [{marca}]")
 
+    if discrepancias:
+        raise RuntimeError("Predicciones distintas del resultado oficial: " + ", ".join(discrepancias))
 
 # ──────────────────────────────────────────────────────────────
 # Etapa 2: latencia por objeto (protocolo comun)
@@ -189,6 +198,8 @@ def etapa_tiempos(repo: Path, por_clase: int) -> None:
     from octnet_backend import LoteGridOctree
     from octree_real import cargar_octree_disperso, reconstruir_octree_desde_npz
 
+    if not torch.cuda.is_available():
+        raise RuntimeError("La comparacion de tiempos CPU/GPU requiere CUDA.")
     gpu = torch.device("cuda")
     cpu = torch.device("cpu")
     resumen = {"protocolo": {
@@ -298,15 +309,18 @@ class _Memoria(ctypes.Structure):
                 ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
 
 
-_KERNEL32 = ctypes.WinDLL("kernel32", use_last_error=True)
-_KERNEL32.GetCurrentProcess.restype = wintypes.HANDLE
-_PSAPI = ctypes.WinDLL("psapi", use_last_error=True)
-_PSAPI.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD]
-_PSAPI.GetProcessMemoryInfo.restype = wintypes.BOOL
+if sys.platform == "win32":
+    _KERNEL32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _KERNEL32.GetCurrentProcess.restype = wintypes.HANDLE
+    _PSAPI = ctypes.WinDLL("psapi", use_last_error=True)
+    _PSAPI.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD]
+    _PSAPI.GetProcessMemoryInfo.restype = wintypes.BOOL
 
 
 def ram_mb() -> float:
     """Working set actual del proceso (Windows)."""
+    if sys.platform != "win32":
+        raise RuntimeError("La medicion de working set requiere Windows; use --etapas predicciones analisis en otros sistemas.")
     m = _Memoria()
     m.cb = ctypes.sizeof(m)
     if not _PSAPI.GetProcessMemoryInfo(_KERNEL32.GetCurrentProcess(), ctypes.byref(m), m.cb):
@@ -392,6 +406,8 @@ def medir_memoria_caso(repo: Path, metodo: str, R: int, n_objetos: int) -> dict:
 
 
 def etapa_memoria(repo: Path, n_objetos: int) -> None:
+    if sys.platform != "win32":
+        raise RuntimeError("La etapa memoria requiere Windows.")
     casos = {}
     for R in RESOLUCIONES:
         for metodo in ("svm", "rf", "net5_gpu", "net5_cpu"):

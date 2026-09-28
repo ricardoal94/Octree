@@ -1,0 +1,7 @@
+modelo,resolucion,n_test,aciertos,accuracy_pct,f1_macro_pct,inferencia_reportada_ms,alcance_tiempo,pipeline_ms,tamano_modelo_mb
+SVM-HCE,32,2468,1874,75.931929,65.816413,0.41799771341357855,predict sobre descriptores precalculados; CPU; lote completo,,4.426473
+RandomForest-HCE,32,2468,1885,76.377634,67.715713,0.016011140721350473,predict sobre descriptores precalculados; CPU; lote completo,,137.732249
+Net5-Octree,32,2468,2029,82.212318,74.930275,8.2915,forward incl. planes; GPU; batch=1,15.4901,34.2
+SVM-HCE,64,2468,1905,77.188006,68.471607,0.40284567172948504,predict sobre descriptores precalculados; CPU; lote completo,,4.393097
+RandomForest-HCE,64,2468,1905,77.188006,68.529992,0.016352732332251253,predict sobre descriptores precalculados; CPU; lote completo,,137.152409
+Net5-Octree,64,2468,2054,83.225284,77.229552,15.0345,forward incl. planes; GPU; batch=1,64.5492,34.2

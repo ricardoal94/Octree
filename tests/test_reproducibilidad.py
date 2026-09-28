@@ -1,7 +1,7 @@
 import numpy as np
 
 from octree_real import _serializar_dfs, construir_octree
-from validacion_objetivo1 import semilla_estable_modelo
+from validacion_objetivo1 import ruta_portable, semilla_estable_modelo
 
 
 def test_semilla_no_depende_del_sistema_operativo():
@@ -23,3 +23,12 @@ def test_construccion_repetida_es_identica():
 
     for array_a, array_b in zip(*serializaciones):
         np.testing.assert_array_equal(array_a, array_b)
+
+
+def test_ruta_portable_admite_ubicaciones_externas(tmp_path):
+    raiz_proyecto = tmp_path / "repositorio"
+    ruta_interna = raiz_proyecto / "Dataset" / "ModelNet40"
+    ruta_externa = tmp_path / "datos_externos" / "ModelNet40"
+
+    assert ruta_portable(ruta_interna, raiz_proyecto) == "Dataset/ModelNet40"
+    assert ruta_portable(ruta_externa, raiz_proyecto) == "ModelNet40"

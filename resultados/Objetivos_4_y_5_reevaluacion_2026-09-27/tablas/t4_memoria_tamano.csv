@@ -1,0 +1,9 @@
+Método,Res.,Archivo (MB),Complejidad,RAM adicional al cargar el modelo (MiB),RAM adicional pico en inferencia (MiB),RAM total pico del proceso (MiB),VRAM pico asignada / reservada (MiB)
+SVM,R32,4.4,5765 vectores de soporte,8,40,161,—
+SVM,R64,4.4,5662 vectores de soporte,8,46,167,—
+Bosque aleatorio,R32,137.7,"100 árboles, 358,494 nodos",143,268,389,—
+Bosque aleatorio,R64,137.2,"100 árboles, 356,984 nodos",142,266,387,—
+Net5-Octree (GPU),R32,34.2,"8,547,456 parámetros",67,748,1328,138 / 300
+Net5-Octree (GPU),R64,34.2,"8,547,456 parámetros",67,765,1345,421 / 1972
+Net5-Octree (CPU),R32,34.2,"8,547,456 parámetros",67,274,854,—
+Net5-Octree (CPU),R64,34.2,"8,547,456 parámetros",67,730,1310,—

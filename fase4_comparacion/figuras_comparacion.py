@@ -2,7 +2,7 @@
 
 Uso (desde la raiz del repositorio):
     python fase4_comparacion/figuras_comparacion.py [--carpeta RUTA]
-Requiere haber ejecutado antes scripts/evaluar.py (todas las etapas).
+Requiere haber ejecutado antes fase4_comparacion/evaluar_comparacion.py (todas las etapas).
 """
 
 import csv
@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 
-CARPETA_DEFECTO = Path(__file__).resolve().parent.parent.parent / "Objetivos_4_y_5_comparacion"
+CARPETA_DEFECTO = Path(__file__).resolve().parent.parent / "resultados" / "Objetivos_4_y_5_comparacion"
 RES = CARPETA_DEFECTO / "resultados"
 FIG = CARPETA_DEFECTO / "figuras"
 

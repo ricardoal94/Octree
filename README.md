@@ -1,4 +1,8 @@
-# Octree adaptativo — Objetivo específico 1
+> **Comparación final R32/R64:** [informe y reproducción](resultados/Objetivos_4_y_5_comparacion/README.md). Auditoría sin GPU: `python fase4_comparacion/auditar_comparacion.py`.
+
+# Octree clásico y Net5 — ModelNet40
+
+Esta versión integra los experimentos de clasificación R32/R64 y su comparación. Las secciones siguientes conservan el procedimiento de construcción y validación del objetivo 1.
 
 Este repositorio contiene el flujo reproducible para construir, persistir y
 comparar dos representaciones tridimensionales de ModelNet40:

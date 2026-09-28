@@ -1,0 +1,4 @@
+| Res. | Octrees de ModelNet40 en disco | Extracción HCE del train | SVM (búsqueda de hiperparámetros) | Bosque aleatorio (ajuste) | Net5-Octree (entrenamiento) | VRAM pico entrenamiento Net5 |
+|---|---|---|---|---|---|---|
+| R32 | 203 MB (16.1 KB/objeto) | ~2.5 min (estimado) | 15.7 s | 0.49 s | 173 min (45 épocas, mejor 25) | 793 MB |
+| R64 | 437 MB (34.6 KB/objeto) | ~9.0 min (estimado) | 17.3 s | 0.49 s | 477 min (39 épocas, mejor 19) | 2524 MB |
