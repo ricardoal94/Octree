@@ -1,0 +1,198 @@
+% =============================================================================
+% Configuración general del documento
+% =============================================================================
+
+% Idioma, codificación y tipografía
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[provide=*,spanish]{babel}
+\AtBeginDocument{\ifdefined\decimalpoint\decimalpoint\fi}
+\usepackage{lmodern}
+
+% Página y composición tipográfica
+\usepackage[
+  a4paper,
+  top=2.8cm,
+  bottom=2.8cm,
+  left=3.2cm,
+  right=2.8cm,
+  headheight=14.5pt
+]{geometry}
+\usepackage{microtype}
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0pt}
+\setlength{\emergencystretch}{2em}
+\raggedbottom
+
+% Matemáticas y unidades
+\usepackage{amsmath,amssymb,mathtools}
+
+% Figuras y tablas
+\usepackage{graphicx}
+\graphicspath{{Figuras/}}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{placeins}
+\captionsetup{font=small,labelfont=bf}
+
+% Listas y código fuente
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{xcolor}
+\definecolor{codigoFondo}{RGB}{247,248,250}
+\definecolor{codigoComentario}{RGB}{75,120,75}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codigoFondo},
+  commentstyle=\color{codigoComentario},
+  frame=single,
+  breaklines=true,
+  showstringspaces=false,
+  tabsize=4
+}
+
+% Títulos de capítulos y secciones
+\usepackage{titlesec}
+\titleformat{\chapter}[hang]
+  {\normalfont\bfseries\Large}
+  {\thechapter.}
+  {0.75em}
+  {}
+\titleformat{name=\chapter,numberless}[hang]
+  {\normalfont\bfseries\Large}
+  {}
+  {0pt}
+  {}
+\titlespacing*{\chapter}{0pt}{0pt}{1.6em}
+\titlespacing*{\section}{0pt}{2.2ex plus 0.5ex minus 0.2ex}{1.0ex}
+\titlespacing*{\subsection}{0pt}{2.0ex plus 0.5ex minus 0.2ex}{0.8ex}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+% Encabezados y pies de página
+\usepackage{fancyhdr}
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
+
+% Citas y referencias. En Overleaf se emplea biblatex-apa con Biber.
+% El segundo bloque permite compilar en instalaciones mínimas de LaTeX.
+\usepackage{csquotes}
+\IfFileExists{biblatex.sty}{%
+  \usepackage[
+    backend=biber,
+    style=apa,
+    sorting=nyt,
+    sortcites=true,
+    maxbibnames=99,
+    giveninits=true,
+    uniquename=false
+  ]{biblatex}
+  \DeclareLanguageMapping{spanish}{spanish-apa}
+  \addbibresource{Figuras/referencias.bib}
+  \newcommand{\imprimirreferencias}{%
+    \cleardoublepage
+    \printbibliography[heading=bibintoc,title={Referencias}]%
+  }
+}{%
+  \usepackage[authoryear,round]{natbib}
+  \bibliographystyle{apalike}
+  \providecommand{\parencite}[1]{\citep{##1}}
+  \providecommand{\textcite}[1]{\citet{##1}}
+  \newcommand{\imprimirreferencias}{%
+    \cleardoublepage
+    \phantomsection
+    \addcontentsline{toc}{chapter}{Referencias}
+    \bibliography{referencias}%
+  }
+}
+
+
+% Soporte de las figuras SVG y los algoritmos de la sección 3.1.
+\usepackage{svg}
+\svgpath{{Figuras/}}
+\newcommand{\FiguraMetodologia}[2]{%
+  \includegraphics[width=#1]{Figuras/#2.pdf}%
+}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\numberwithin{algorithm}{chapter}
+\floatname{algorithm}{Algoritmo}
+\algrenewcommand\algorithmicrequire{\textbf{Entrada:}}
+\algrenewcommand\algorithmicensure{\textbf{Salida:}}
+\algrenewcommand\algorithmicif{\textbf{si}}
+\algrenewcommand\algorithmicthen{\textbf{entonces}}
+\algrenewcommand\algorithmicelse{\textbf{en otro caso}}
+\algrenewcommand\algorithmicfor{\textbf{para}}
+\algrenewcommand\algorithmicdo{\textbf{hacer}}
+\algrenewcommand\algorithmicend{\textbf{fin}}
+\algrenewcommand\algorithmicreturn{\textbf{devolver}}
+\algrenewcommand\algorithmicfunction{\textbf{función}}
+
+% Hipervínculos y referencias cruzadas: deben cargarse al final.
+\usepackage[hidelinks]{hyperref}
+\Urlmuskip=0mu plus 1mu\relax
+\usepackage{bookmark}
+\usepackage[capitalise,noabbrev]{cleveref}
+\hypersetup{
+  pdftitle={Estudio reproducible de escalabilidad por resolución en clasificación tridimensional con representación basada en octrees: enfoque clásico y red profunda},
+  pdfauthor={Ricardo Andrés López Tarazona y Daniel Tarazona Sánchez},
+  pdfsubject={Trabajo de grado - Ingeniería de Sistemas},
+  pdfkeywords={clasificación tridimensional, octree, Net5, ModelNet40, reproducibilidad}
+}
+
+% Nombres en español
+\addto\captionsspanish{%
+  \renewcommand{\contentsname}{Índice general}
+  \renewcommand{\tablename}{Tabla}
+  \renewcommand{\listtablename}{Índice de tablas}
+  \renewcommand{\listfigurename}{Índice de figuras}
+  \renewcommand{\bibname}{Referencias}
+}
+\crefname{figure}{figura}{figuras}
+\Crefname{figure}{Figura}{Figuras}
+\crefname{table}{tabla}{tablas}
+\Crefname{table}{Tabla}{Tablas}
+\crefname{section}{sección}{secciones}
+\Crefname{section}{Sección}{Secciones}
+\crefname{chapter}{capítulo}{capítulos}
+\Crefname{chapter}{Capítulo}{Capítulos}
+\crefname{equation}{ecuación}{ecuaciones}
+\Crefname{equation}{Ecuación}{Ecuaciones}
+
+% Comandos útiles del proyecto
+\newcommand{\resolucion}[1]{\ensuremath{#1^{3}}}
+\newcommand{\ModelNet}{\textit{ModelNet40}}
+\newcommand{\NetCinco}{\textit{Net5}}
+\newcommand{\ContenidoPendiente}{%
+  \par\noindent
+  {\small\color{gray}\textit{Contenido pendiente de incorporación y revisión.}}%
+  \par\vspace{0.45\baselineskip}
+}
+
+% El logotipo PDF tiene prioridad. El JPG permite que este paquete compile
+% inmediatamente y puede eliminarse cuando se copie Figuras/logo_uis.pdf.
+\newcommand{\LogoUIS}[1][0.23\textwidth]{%
+  \IfFileExists{Figuras/logo_uis.pdf}{%
+    \includegraphics[width=#1]{Figuras/logo_uis.pdf}%
+  }{%
+    \IfFileExists{Figuras/logo_uis.jpg}{%
+      \includegraphics[width=#1]{Figuras/logo_uis.jpg}%
+    }{%
+      \fbox{\parbox[c][2.1cm][c]{4.2cm}{\centering Logo UIS\\pendiente}}%
+    }%
+  }%
+}
+
+\makeatletter\def\theHALG@line{\thealgorithm.\arabic{ALG@line}}\makeatother

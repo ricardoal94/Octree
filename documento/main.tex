@@ -1,0 +1,69 @@
+\documentclass[12pt,a4paper,oneside,openany]{book}
+
+% Configuración general y datos editables del documento.
+\input{settings}
+\input{datos}
+
+\begin{document}
+
+% -----------------------------------------------------------------------------
+% Páginas iniciales sin numeración
+% -----------------------------------------------------------------------------
+\hypersetup{pageanchor=false}
+\pagenumbering{gobble}
+\pagestyle{empty}
+\input{preliminares/portada}
+\input{preliminares/contraportada}
+\hypersetup{pageanchor=true}
+
+% Si se requieren, activar las líneas siguientes.
+% \input{preliminares/dedicatoria}
+% \input{preliminares/agradecimientos}
+
+% -----------------------------------------------------------------------------
+% Elementos preliminares con numeración romana
+% -----------------------------------------------------------------------------
+\frontmatter
+\pagenumbering{Roman}
+\pagestyle{plain}
+
+\tableofcontents
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Índice de tablas}
+\listoftables
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Índice de figuras}
+\listoffigures
+
+\input{preliminares/lista_abreviaturas}
+
+\input{preliminares/resumen}
+\input{preliminares/abstract}
+
+% -----------------------------------------------------------------------------
+% Cuerpo principal con numeración arábiga
+% -----------------------------------------------------------------------------
+\mainmatter
+\pagestyle{plain}
+
+\input{capitulos/01_introduccion}
+\input{capitulos/02_fundamentos_estado_arte}
+\input{capitulos/03_metodologia}
+\input{capitulos/04_resultados_discusion}
+\input{capitulos/05_conclusiones_trabajo_futuro}
+
+% -----------------------------------------------------------------------------
+% Referencias y anexos
+% -----------------------------------------------------------------------------
+\imprimirreferencias
+
+% Los anexos se ubican después de las referencias. El archivo puede permanecer
+% vacío mientras no existan anexos aprobados para el documento.
+\appendix
+\input{anexos/anexos}
+
+\end{document}

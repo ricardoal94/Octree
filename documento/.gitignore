@@ -1,0 +1,27 @@
+# Archivos auxiliares generados por LaTeX y Biber
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+
+# Salidas locales de compilacion
+main.pdf
+main.dvi
+main.ps
+
+# Archivos temporales del editor y del sistema
+*.bak
+*.tmp
+*~
+.DS_Store
+Thumbs.db
