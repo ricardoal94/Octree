@@ -1,0 +1,18 @@
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+\noindent\textbf{Title:} Reproducible study of resolution scalability in three-dimensional classification using octree-based representations: classical approach and deep network\footnotemark[1]
+
+\smallskip
+\noindent\textbf{Authors:} \AutorUno; \AutorDos.\footnotemark[2]
+
+\smallskip
+\noindent\textbf{Keywords:} three-dimensional classification, octree, ModelNet40, machine learning, computational scalability.
+
+\smallskip
+\noindent\textbf{Description:}
+
+This study evaluated, through a reproducible protocol, resolution scalability and the trade-off between classification performance and computational cost in octree-based methods for three-dimensional objects. It was conducted within the Optics and Signal Processing Group of the School of Physics at Universidad Industrial de Santander as a foundation for the efficient processing of 3D information relevant to its optical metrology research line. On ModelNet40, comprising 12,311 CAD models from 40 categories, two approaches were compared at $32^3$ and $64^3$: a classical approach using handcrafted hierarchical descriptors classified with an RBF-kernel SVM and a Random Forest, and a native Net5 implementation operating on octrees. The protocol documented geometric preprocessing, official data partitions, validation-based selection, experimental configurations, and evaluation on the 2,468 test objects. Net5 achieved accuracies of $82.21\,\%$ and $83.23\,\%$; SVM achieved $75.93\,\%$ and $77.19\,\%$; and Random Forest achieved $76.38\,\%$ and $77.19\,\%$ at $32^3$ and $64^3$, respectively. Paired comparisons confirmed the higher performance of Net5 over the classical classifiers. Increasing resolution yielded modest accuracy gains of $0.81$ to $1.26$ percentage points and increased latency within each route. SVM produced the smallest models, whereas Net5 attained the highest accuracy; resource measurements were interpreted according to their different CPU and GPU scopes. Models, configurations, partitions, predictions, and results were versioned, and reevaluation reproduced all six prediction sequences. The findings characterize the performance--cost trade-off for CAD objects and do not constitute a metrological validation on optical reconstructions.
+
+\footnotetext[1]{Undergraduate degree project, research modality.}
+\footnotetext[2]{Faculty of Physical-Mechanical Engineering. School of Systems Engineering and Computer Science. Advisor: \DirectorNombre, \DirectorTitulo{} Co-advisor: \CodirectorNombre, \CodirectorTitulo}

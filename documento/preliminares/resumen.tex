@@ -1,0 +1,18 @@
+\chapter*{Resumen}
+\addcontentsline{toc}{chapter}{Resumen}
+
+\noindent\textbf{Título:} \TituloTrabajo\footnotemark[1]
+
+\smallskip
+\noindent\textbf{Autores:} \AutorUno; \AutorDos.\footnotemark[2]
+
+\smallskip
+\noindent\textbf{Palabras clave:} clasificación tridimensional, octree, ModelNet40, aprendizaje automático, escalabilidad computacional.
+
+\smallskip
+\noindent\textbf{Descripción:}
+
+Este trabajo evaluó, mediante un protocolo reproducible, la escalabilidad por resolución y el compromiso entre desempeño de clasificación y costo computacional de métodos basados en octrees para objetos tridimensionales. Se desarrolló en el Grupo de Óptica y Tratamiento de Señales de la Escuela de Física de la Universidad Industrial de Santander, como antecedente para el procesamiento eficiente de información 3D de interés en su línea de metrología óptica. Sobre ModelNet40, compuesto por $12\,311$ modelos CAD de 40 categorías, se compararon en $32^3$ y $64^3$ un enfoque clásico de características jerárquicas manuales, clasificadas mediante SVM con núcleo RBF y Bosque Aleatorio, y una implementación nativa de Net5 sobre octrees. El protocolo documentó la preparación geométrica, las particiones oficiales, la selección mediante validación, las configuraciones experimentales y la evaluación de los $2\,468$ objetos de prueba. Net5 alcanzó exactitudes de $82{,}21\,\%$ y $83{,}23\,\%$; SVM, $75{,}93\,\%$ y $77{,}19\,\%$; y el Bosque Aleatorio, $76{,}38\,\%$ y $77{,}19\,\%$, para $32^3$ y $64^3$, respectivamente. Las comparaciones emparejadas confirmaron el mayor desempeño de Net5 frente a los clasificadores clásicos. El aumento de resolución produjo mejoras modestas de exactitud, entre $0{,}81$ y $1{,}26$ puntos porcentuales, e incrementó la latencia dentro de cada ruta. SVM generó los modelos más pequeños y Net5 obtuvo la mayor exactitud; las mediciones de recursos se interpretaron según sus diferentes alcances en CPU y GPU. Los modelos, configuraciones, particiones, predicciones y resultados se versionaron, y la reevaluación reprodujo las seis secuencias de predicciones. Los hallazgos caracterizan el compromiso desempeño--costo en objetos CAD y no constituyen una validación metrológica sobre reconstrucciones ópticas.
+
+\footnotetext[1]{Trabajo de grado, modalidad Trabajo de Investigación.}
+\footnotetext[2]{Facultad de Ingenierías Fisicomecánicas. Escuela de Ingeniería de Sistemas e Informática. Director: \DirectorNombre, \DirectorTitulo{} Codirector: \CodirectorNombre, \CodirectorTitulo}
