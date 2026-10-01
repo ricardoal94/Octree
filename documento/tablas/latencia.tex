@@ -1,0 +1,19 @@
+\begin{table}[htbp]\centering\small
+\caption{Latencia por objeto en la muestra de 400 objetos. Los componentes y el agregado se expresan en milisegundos. El agregado GPU de Net5 excluye el armado del lote; el de CPU lo incluye. Elaboración propia a partir de la medición principal.}\label{tab:latencia-final}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lr rrr rr@{}}\toprule
+& & \multicolumn{3}{c}{Medianas por componente (ms)} & \multicolumn{2}{c}{Agregado (ms)} \\
+\cmidrule(lr){3-5}\cmidrule(l){6-7}
+Método & $R$ & Carga & \shortstack{Extracción/\\preparación} & \shortstack{Predicción/\\propagación} & Mediana & P95 \\\midrule
+SVM & 32 & 8,32 & 5,02 & 0,82 & 14,32 & 34,60 \\
+Bosque & 32 & 8,32 & 5,02 & 5,88 & 19,66 & 40,76 \\
+Net5 GPU & 32 & 7,30 & 37,55 & 5,91 & 52,09 & 105,39 \\
+Net5 CPU & 32 & 7,30 & 37,55 & 102,65 & 148,54 & 312,37 \\
+SVM & 64 & 27,56 & 23,04 & 0,82 & 52,74 & 118,77 \\
+Bosque & 64 & 27,56 & 23,04 & 5,77 & 57,68 & 123,82 \\
+Net5 GPU & 64 & 24,91 & 187,90 & 11,81 & 230,10 & 462,94 \\
+Net5 CPU & 64 & 24,91 & 187,90 & 334,87 & 549,10 & 1\,090,24 \\
+\bottomrule\end{tabular}
+\par\smallskip\begin{minipage}{\textwidth}\footnotesize
+Para SVM y Bosque, la segunda etapa corresponde a extracción HCE y la tercera a predicción con el clasificador. Para Net5, corresponden a preparación geométrica y propagación en el dispositivo indicado. P95: percentil 95. Las medianas de componentes no se suman para obtener la mediana del agregado; este se calcula por objeto antes de resumirlo.\end{minipage}
+\end{table}

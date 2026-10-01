@@ -1,0 +1,11 @@
+\begin{table}[htbp]\centering\small
+\caption{Tiempos de preparación HCE y entrenamiento por resolución. Se distingue cada etapa, su unidad y la naturaleza del valor. Elaboración propia a partir de los resúmenes de entrenamiento y la estimación documentada.}\label{tab:entrenamiento-final}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm}rrl>{\raggedright\arraybackslash}X@{}}\toprule
+Etapa & $32^3$ & $64^3$ & Unidad & Naturaleza y alcance \\\midrule
+Carga y extracción HCE & 2,53 & 9,23 & min & Estimada: extrapolación de carga del NPZ y extracción a los $9\,843$ objetos del entrenamiento oficial. \\ \addlinespace
+Búsqueda y ajuste del SVM & 15,70 & 17,30 & s & Medida: búsqueda con validación cruzada y ajuste final; características ya disponibles. \\ \addlinespace
+Ajuste del Bosque Aleatorio & 0,49 & 0,49 & s & Medida: ajuste con las características disponibles; no incluye su extracción. \\ \addlinespace
+Entrenamiento de Net5 & 173,31 & 476,86 & min & Medida: duración acumulada de las épocas, incluida validación; 45 épocas en $32^3$ y 39 en $64^3$. \\ \addlinespace
+\bottomrule\end{tabularx}
+\end{table}

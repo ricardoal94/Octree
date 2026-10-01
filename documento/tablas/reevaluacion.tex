@@ -1,0 +1,32 @@
+\begin{table}[htbp]\centering\small
+\caption{Latencia y memoria RAM de la medición principal y la reevaluación del 27 de septiembre de 2026. La latencia corresponde a 400 objetos y la memoria a 100. La variación temporal se calcula respecto a la principal. Elaboración propia a partir de ambos registros.}\label{tab:reevaluacion-final}
+\setlength{\tabcolsep}{4pt}
+\textbf{(a) Mediana de latencia por objeto}\par\smallskip
+\begin{tabular}{@{}lrrrr@{}}\toprule
+Método & $R$ & Principal (ms) & Reevaluación (ms) & Variación (\%) \\\midrule
+SVM & 32 & 14,32 & 13,61 & -4,94 \\
+Bosque & 32 & 19,66 & 18,69 & -4,94 \\
+Net5 GPU & 32 & 52,09 & 48,30 & -7,28 \\
+Net5 CPU & 32 & 148,54 & 153,20 & 3,14 \\
+SVM & 64 & 52,74 & 51,53 & -2,29 \\
+Bosque & 64 & 57,68 & 56,78 & -1,57 \\
+Net5 GPU & 64 & 230,10 & 217,52 & -5,47 \\
+Net5 CPU & 64 & 549,10 & 587,05 & 6,91 \\
+\bottomrule\end{tabular}
+\par\medskip\textbf{(b) Pico de RAM adicional y total del proceso}\par\smallskip
+\begin{tabular}{@{}lr rrrr@{}}\toprule
+& & \multicolumn{2}{c}{RAM adicional (MiB)} & \multicolumn{2}{c}{RAM total (MiB)} \\
+\cmidrule(lr){3-4}\cmidrule(l){5-6}
+Método & $R$ & Principal & Reevaluación & Principal & Reevaluación \\\midrule
+SVM & 32 & 40,42 & 40,34 & 161,39 & 161,23 \\
+Bosque & 32 & 267,59 & 267,80 & 388,19 & 389,01 \\
+Net5 GPU & 32 & 728,94 & 747,82 & 1\,308,91 & 1\,328,07 \\
+Net5 CPU & 32 & 272,17 & 273,94 & 852,39 & 853,62 \\
+SVM & 64 & 42,15 & 45,80 & 162,96 & 166,53 \\
+Bosque & 64 & 266,01 & 266,13 & 386,88 & 386,96 \\
+Net5 GPU & 64 & 821,49 & 764,57 & 1\,401,90 & 1\,344,72 \\
+Net5 CPU & 64 & 734,21 & 729,83 & 1\,314,35 & 1\,309,95 \\
+\bottomrule\end{tabular}
+\par\smallskip\begin{minipage}{\textwidth}\footnotesize
+RAM adicional: incremento del pico observado sobre la base de cada proceso. RAM total: pico del conjunto de trabajo del proceso. En las filas Net5 GPU se informa RAM del equipo, no VRAM; ambas magnitudes son distintas. Los alcances temporales conservan las salvedades de la Tabla~\ref{tab:latencia-final}.\end{minipage}
+\end{table}

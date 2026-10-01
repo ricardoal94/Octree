@@ -1,0 +1,14 @@
+\begin{table}[htbp]\centering\small
+\caption{Memoria observada sobre cien objetos de tres categorías, en MiB. RAM adicional respecto a la base; VRAM asignada y reservada por PyTorch. Elaboración propia.}\label{tab:memoria-final}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrrrr@{}}\toprule
+Método & $R$ & RAM adicional & RAM total & VRAM asig. / res. \\\midrule
+SVM & 32 & 40,4 & 161,4 & -- \\
+Bosque & 32 & 267,6 & 388,2 & -- \\
+Net5 GPU & 32 & 728,9 & 1\,308,9 & 137,7 / 300,0 \\
+Net5 CPU & 32 & 272,2 & 852,4 & -- \\
+SVM & 64 & 42,2 & 163,0 & -- \\
+Bosque & 64 & 266,0 & 386,9 & -- \\
+Net5 GPU & 64 & 821,5 & 1\,401,9 & 420,6 / 1\,972,0 \\
+Net5 CPU & 64 & 734,2 & 1\,314,4 & -- \\
+\bottomrule\end{tabular}\end{table}

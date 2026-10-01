@@ -1,0 +1,15 @@
+\begin{table}[htbp]\centering\small
+\caption{Comparaciones emparejadas. Las dos columnas centrales cuentan aciertos exclusivos del primer y segundo método; los valores de probabilidad son individuales, sin ajuste por multiplicidad. Elaboración propia.}\label{tab:contrastes-finales}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrrr@{}}\toprule
+Comparación & Solo primero & Solo segundo & $p$ \\\midrule
+Net5 vs SVM (32) & 297 & 142 & $1,1\times10^{-13}$ \\
+Net5 vs Bosque (32) & 282 & 138 & $1,8\times10^{-12}$ \\
+Bosque vs SVM (32) & 178 & 167 & 0,590 \\
+Net5 vs SVM (64) & 289 & 140 & $5,3\times10^{-13}$ \\
+Net5 vs Bosque (64) & 293 & 144 & $8,7\times10^{-13}$ \\
+Bosque vs SVM (64) & 158 & 158 & 1,000 \\
+SVM: $64^3$ frente a $32^3$ & 110 & 79 & 0,029 \\
+Bosque: $64^3$ frente a $32^3$ & 102 & 82 & 0,161 \\
+Net5: $64^3$ frente a $32^3$ & 125 & 100 & 0,109 \\
+\bottomrule\end{tabular}\end{table}

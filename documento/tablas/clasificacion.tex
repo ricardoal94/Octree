@@ -1,0 +1,12 @@
+\begin{table}[H]\centering\small
+\caption{Evaluación sobre 2\,468 objetos por configuración. Exactitud (A), exactitud balanceada (AB) y promedios F1 expresados en porcentaje. Elaboración propia.}\label{tab:clasificacion-final}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lrrrrrrr@{}}\toprule
+Método & $R$ & Aciertos & Errores & A & AB & F1 macro & F1 pond. \\\midrule
+SVM & 32 & 1\,874 & 594 & 75,93 & 66,24 & 65,82 & 75,47 \\
+Bosque & 32 & 1\,885 & 583 & 76,38 & 67,64 & 67,72 & 75,43 \\
+Net5 & 32 & 2\,029 & 439 & 82,21 & 75,81 & 74,93 & 81,99 \\
+SVM & 64 & 1\,905 & 563 & 77,19 & 68,86 & 68,47 & 76,91 \\
+Bosque & 64 & 1\,905 & 563 & 77,19 & 67,80 & 68,53 & 76,35 \\
+Net5 & 64 & 2\,054 & 414 & 83,23 & 77,29 & 77,23 & 83,38 \\
+\bottomrule\end{tabular}\end{table}
