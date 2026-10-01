@@ -1,0 +1,188 @@
+\chapter{Fundamentos teóricos y estado del arte}
+\label{chap:fundamentos}
+
+Este capítulo presenta los fundamentos que permiten interpretar la clasificación tridimensional mediante características manuales y aprendizaje profundo. Se examina cómo la representación espacial condiciona la información disponible, cómo la aprovechan los clasificadores y qué criterios permiten evaluar su desempeño y sus costos. Los antecedentes se contrastan para situar el alcance del proyecto; las expresiones operativas, las configuraciones y los procedimientos experimentales se desarrollan en el Capítulo~\ref{chap:metodologia}.
+
+\section{Clasificación tridimensional de objetos}
+\label{sec:clasificacion-3d}
+La clasificación tridimensional asigna una categoría a la representación completa de un objeto. Se diferencia de la segmentación, que identifica categorías o partes dentro de la geometría, y de la reconstrucción, cuyo propósito es estimar una superficie. Estas tareas pueden compartir representaciones, pero requieren salidas y criterios de evaluación diferentes \parencite{guo2021}. En este proyecto, la unidad de clasificación es un objeto y la respuesta corresponde a una de las categorías de ModelNet40.
+
+En el aprendizaje supervisado se utiliza un conjunto de ejemplos etiquetados para ajustar una función de predicción. El interés no reside únicamente en reconocer esos ejemplos, sino en generalizar a objetos no utilizados durante el ajuste. La separación entre entrenamiento, selección del modelo y evaluación final permite distinguir estos propósitos \parencite{goodfellow2016}. Además del clasificador, la normalización y la representación de entrada influyen en qué propiedades geométricas pueden conservarse o perderse.
+
+\section{Representaciones tridimensionales}
+\label{sec:representaciones-3d}
+Las mallas, las nubes de puntos y las representaciones volumétricas describen aspectos diferentes de la geometría. Difieren en conectividad, regularidad espacial y cantidad de información almacenada; por ello, transformar una representación modifica también las operaciones que pueden realizarse eficientemente \parencite{guo2021}.
+
+\subsection{Mallas y nubes de puntos}
+Una malla poligonal contiene vértices y caras que establecen una aproximación conectada de la superficie. Una nube de puntos contiene posiciones muestreadas, posiblemente acompañadas de atributos, pero no conserva necesariamente las relaciones entre caras de la malla original \parencite{guo2021}. Las normales complementan las posiciones mediante información de orientación local.
+
+Cuando las caras tienen áreas distintas, elegir cada triángulo con la misma probabilidad sobrerrepresenta las regiones formadas por triángulos pequeños. El muestreo proporcional al área, seguido de una selección uniforme dentro del triángulo elegido, permite distribuir las muestras sobre la superficie según su extensión \parencite{pbrt}. Una nube finita sigue siendo una aproximación: la ausencia de puntos dentro de una región no demuestra que la superficie continua no la atraviese. Esta distinción importa al interpretar la ocupación obtenida después del muestreo.
+
+\subsection{Rejillas densas}
+Una rejilla regular divide el dominio espacial en celdas indexadas por tres coordenadas. Su disposición permite representar atributos mediante tensores y aplicar operaciones volumétricas regulares, como las utilizadas en los antecedentes de aprendizaje de formas \parencite{wu2015}. Sin embargo, reservar todas las posiciones implica un crecimiento cúbico del número de celdas al aumentar la resolución por eje, incluso cuando gran parte del dominio está vacío.
+
+La ocupación depende del significado asignado a una celda. Representar el interior de un sólido no equivale a registrar las celdas alcanzadas por muestras de su superficie. En este proyecto se adoptó esta segunda interpretación. Por tanto, los vacíos interiores no se interpretan como errores de llenado y la comparación geométrica debe conservar el mismo criterio de ocupación en ambas representaciones.
+
+\subsection{Jerarquías dispersas}
+Las estructuras jerárquicas organizan regiones espaciales a distintas escalas y permiten describir con mayor detalle las zonas que requieren subdivisión. Su interés radica en adaptar la organización de la información a la distribución geométrica, en lugar de reservar uniformemente todas las posiciones \parencite{samet}. La dispersión reduce la información explícita cuando existen regiones omitibles, pero introduce relaciones estructurales que también deben almacenarse y recorrerse.
+
+De ello no se deduce que cualquier implementación jerárquica consuma menos recursos que una densa. La representación de índices, las referencias entre nodos y el modo de ejecutar las operaciones pueden alterar el costo efectivo. La compactación espacial y la eficiencia computacional son propiedades relacionadas que deben evaluarse por separado.
+
+\section{Octrees adaptativos}
+\label{sec:octrees}
+Un octree representa una región cúbica mediante subdivisiones en ocho octantes. Cada nodo puede relacionarse con sus hijos, que cubren subregiones del dominio de su padre \parencite{meagher1982}. La raíz contiene el dominio completo y, con la convención utilizada en este documento, corresponde al nivel cero. Cada subdivisión reduce a la mitad el lado de la región y duplica la resolución equivalente por eje.
+
+El criterio de subdivisión y la condición de parada determinan la adaptación. Esta puede responder, por ejemplo, a la ocupación o al detalle geométrico que se pretende conservar \parencite{samet}. En el enfoque del proyecto se retienen las ramas necesarias para representar las muestras y se omiten regiones vacías. Que las hojas ocupadas alcancen una profundidad máxima común no transforma la estructura en varias rejillas independientes: persisten las relaciones padre--hijo y la poda espacial. Tampoco implica que la topología haya sido aprendida por un clasificador.
+
+Conviene distinguir el octree global utilizado para organizar un objeto de una rejilla de octrees locales poco profundos. Esta última combina regularidad entre regiones con adaptación dentro de cada región y constituye el principio de OctNet \parencite{riegler2017}. Las transformaciones entre ambas organizaciones deben preservar el significado de la ocupación y de los atributos; su realización concreta se explica en el Capítulo~\ref{chap:metodologia}.
+
+La Figura~\ref{fig:representaciones-conceptuales} compara cuatro representaciones de una misma silla, conservando la geometría de referencia, la normalización y la orientación de observación. La malla muestra la conectividad superficial y la nube sus muestras; la rejilla densa reserva el dominio completo, mientras que el octree conserva las ramas ocupadas y omite las regiones vacías. Los trazos ocres del panel~\subref{fig:concepto-octree} muestran regiones de nodos antecesores de las hojas ocupadas, para distinguir la jerarquía de una colección de celdas aisladas.
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[t]{0.47\textwidth}
+\centering
+\includegraphics[width=\linewidth]{concepto_malla.pdf}
+\caption{Malla poligonal.}\label{fig:concepto-malla}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.47\textwidth}
+\centering
+\includegraphics[width=\linewidth]{concepto_nube.pdf}
+\caption{Nube de puntos.}\label{fig:concepto-nube}
+\end{subfigure}
+
+\medskip
+\begin{subfigure}[t]{0.47\textwidth}
+\centering
+\includegraphics[width=\linewidth]{concepto_rejilla.pdf}
+\caption{Rejilla densa.}\label{fig:concepto-rejilla}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{0.47\textwidth}
+\centering
+\includegraphics[width=\linewidth]{concepto_octree.pdf}
+\caption{Octree adaptativo con poda.}\label{fig:concepto-octree}
+\end{subfigure}
+\caption{Comparación conceptual de representaciones de la misma silla: (a) malla poligonal, (b) nube de puntos, (c) rejilla densa con celdas ocupadas destacadas y (d) octree con poda de regiones vacías. En (d), los contornos ocres ilustran regiones de nodos antecesores y las celdas coloreadas representan hojas ocupadas; la caja exterior delimita el dominio. Elaboración propia a partir de \texttt{chair\_0001}, con idéntica orientación y discretización común en (c) y (d), elegida únicamente para facilitar la lectura. Es un esquema ilustrativo, no un resultado ni una comparación cuantitativa de las resoluciones experimentales.}
+\label{fig:representaciones-conceptuales}
+\end{figure}
+\FloatBarrier
+
+\section{Características y clasificación tradicional}
+\label{sec:clasificacion-clasica}
+\subsection{Características manuales HCE}
+Las características manuales condensan propiedades elegidas explícitamente antes de ajustar el clasificador. En este proyecto, HCE designa la combinación de descriptores de ocupación jerárquica, distribución geométrica y coherencia de normales. Se trata de una definición del estudio, cuyas expresiones y dimensión se presentan en la Sección~\ref{sec:hce-clasificacion}, y no de un descriptor tomado íntegramente de una única fuente.
+
+La ocupación jerárquica describe cómo se distribuye la presencia de la superficie entre escalas. Una región que parece ocupada a escala gruesa puede dividirse en pocas o muchas regiones ocupadas a escala fina. Este perfil informa sobre la distribución espacial de la geometría y aprovecha la organización multiescala del octree \parencite{samet}. No conserva por sí solo las posiciones de todas las regiones: dos objetos pueden compartir conteos por nivel y diferir en su forma.
+
+Los momentos geométricos resumen la distribución de posiciones. El centroide informa sobre su localización promedio; la dispersión caracteriza su extensión respecto de ese centro, y las medidas de asimetría describen desequilibrios de la distribución. Las estadísticas radiales complementan esta información mediante las distancias al centro. Los momentos constituyen un antecedente de la descripción de formas y de la construcción de invariantes \parencite{sadjadi1980}; sin embargo, utilizar momentos no garantiza automáticamente invariancia a rotaciones. Las estadísticas calculadas por eje dependen de la orientación, y el promedio de centros de hojas no equivale necesariamente al centro de masa de un sólido ni a un promedio ponderado por área de superficie.
+
+La coherencia de normales resume el acuerdo entre orientaciones. En estadística direccional, la magnitud de la resultante media permite describir concentración de direcciones \parencite{mardia1999}. Normales próximas se refuerzan, mientras que orientaciones divergentes u opuestas pueden cancelarse. Esta información complementa la distribución de posiciones: regiones espacialmente similares pueden diferir en orientación superficial. Una coherencia baja no demuestra por sí sola mayor curvatura, pues también depende de la mezcla de superficies y de la orientación consistente de las normales.
+
+\subsection{Máquinas de vectores de soporte}
+Una máquina de vectores de soporte busca una frontera de decisión con un margen amplio respecto de los ejemplos relevantes, denominados vectores de soporte. En la formulación de margen flexible se admite que algunos ejemplos violen el margen o sean clasificados incorrectamente. El parámetro de regularización $C$ controla la penalización de esas violaciones frente al criterio de margen: valores mayores penalizan más los errores de ajuste, sin garantizar por ello una mejor generalización \parencite{cortes1995}.
+
+El núcleo de función de base radial, RBF, permite construir fronteras no lineales a partir de la similitud entre vectores. Su parámetro $\gamma$ regula la escala de esa similitud: un valor grande hace que disminuya rápidamente con la distancia, mientras que uno pequeño produce una influencia más extendida. Los efectos de $C$ y $\gamma$ deben considerarse conjuntamente, porque ambos condicionan la complejidad de la frontera \parencite{hsu2025}.
+
+El escalado es relevante porque el núcleo utiliza distancias. Una característica con un rango numérico mayor puede dominar esa distancia aunque su información no sea más pertinente. La transformación de escala debe estimarse con los datos destinados al ajuste y aplicarse de forma consistente a los demás objetos \parencite{hsu2025}. El fundamento es evitar que las unidades o la información de evaluación determinen artificialmente la geometría del problema; el procedimiento de validación empleado se detalla en la metodología.
+
+\subsection{Bosque Aleatorio}
+El Bosque Aleatorio combina árboles de decisión obtenidos con dos fuentes distintas de aleatoriedad. El remuestreo con reemplazo de objetos genera conjuntos de entrenamiento para los árboles; la selección aleatoria de características limita las variables candidatas en cada división de un nodo. La combinación favorece diversidad entre árboles, cuya agregación reduce la dependencia de las decisiones de un único árbol \parencite{breiman2001}.
+
+La impureza de Gini describe la mezcla de categorías en un nodo: es nula cuando todos sus objetos pertenecen a una misma clase y aumenta cuando se distribuyen entre varias. Una división se valora por la reducción de impureza que produce en los nodos descendientes. En la formulación clásica, la clasificación del bosque se obtiene por votación de los árboles \parencite{breiman2001}. La agregación de probabilidades de clase constituye una distinción operativa que debe especificarse al describir la implementación.
+
+Las importancias acumuladas por disminución de impureza indican cuánto contribuyeron las características a las divisiones del bosque ajustado. No establecen causalidad ni una relevancia universal: pueden depender de las oportunidades de división y favorecer variables con más puntos de corte o categorías \parencite{strobl2007}. Por ello, su lectura exige considerar el tipo de atributos y no sustituye una evaluación específica de su contribución predictiva.
+
+\section[Aprendizaje profundo para datos tridimensionales]
+{Aprendizaje profundo para datos\\ tridimensionales}
+\label{sec:aprendizaje-profundo-3d}
+El aprendizaje profundo ajusta representaciones internas junto con la función de predicción. En tres dimensiones existen aproximaciones volumétricas, multivista y basadas directamente en puntos, entre otras \parencite{wu2015,su2015,qi2017}. La representación condiciona la operación básica de la red: compartir una tarea de clasificación no convierte en equivalentes sus entradas, transformaciones ni costos.
+
+\subsection{Operaciones básicas de una red}
+Una convolución tridimensional combina atributos de una vecindad espacial mediante filtros cuyos pesos se comparten entre posiciones. Esta combinación extrae patrones locales y genera nuevos canales de representación. El apilamiento de capas amplía la región de entrada que puede influir en una respuesta. La función ReLU introduce una no linealidad al conservar las respuestas positivas y anular las negativas; sin funciones no lineales, la composición de transformaciones lineales no proporciona la misma capacidad de representación \parencite{goodfellow2016}.
+
+La reducción espacial por máximo conserva la respuesta máxima de una vecindad. Disminuye la resolución de la representación y puede reducir sensibilidad a pequeños desplazamientos, a costa de perder detalle espacial. Una capa completamente conectada combina todas sus entradas con pesos aprendidos y permite integrar la información en una decisión global \parencite{goodfellow2016}.
+
+La desactivación aleatoria, o \textit{dropout}, anula temporalmente unidades durante el entrenamiento como mecanismo de regularización. La predicción utiliza la red sin esas anulaciones aleatorias y con el escalado correspondiente a la convención adoptada \parencite{srivastava2014}. No equivale a eliminar permanentemente parámetros del modelo.
+
+En clasificación multiclase, la red produce, para cada objeto, un vector de puntuaciones no normalizadas, denominadas \emph{logits}. Estas puntuaciones son valores reales y no constituyen probabilidades. La función \emph{softmax} las transforma en una distribución sobre las categorías, como se define en la Ecuación~\eqref{eq:softmax-fundamentos} \parencite{goodfellow2016}:
+\begin{equation}
+ p_{i,c}=\frac{\exp(z_{i,c})}{\displaystyle\sum_{k=0}^{K-1}\exp(z_{i,k})}.
+ \label{eq:softmax-fundamentos}
+\end{equation}
+Aquí, $i$ identifica el objeto; $c$ identifica la categoría cuya probabilidad se calcula; $K$ es el número total de categorías; $k$ es el índice de suma que recorre las categorías desde cero hasta $K-1$; $z_{i,k}$ es el logit del objeto $i$ para la categoría $k$; $p_{i,c}$ es la probabilidad asignada a la categoría $c$; y $\exp$ denota la función exponencial natural. Tanto las puntuaciones como las probabilidades son adimensionales. Para logits finitos, cada exponencial es positiva y el denominador suma las contribuciones de todas las categorías; por ello, las probabilidades son no negativas y su suma sobre las categorías es uno.
+
+La normalización de la Ecuación~\eqref{eq:softmax-fundamentos} permite interpretar conjuntamente las salidas, sin tratar cada puntuación como una probabilidad independiente. La entropía cruzada utiliza esta distribución: para una etiqueta de clase única, penaliza el logaritmo negativo de la probabilidad asignada a la categoría correcta, proporcionando un criterio diferenciable para el ajuste \parencite{goodfellow2016}. La exactitud, en cambio, cuenta si la categoría de mayor puntuación coincide con la etiqueta real, sin valorar la confianza de esa decisión. Así, dos predicciones pueden tener el mismo resultado en exactitud y contribuir de forma distinta a la entropía cruzada.
+
+\section{OctNet y la adaptación Net5}
+\label{sec:octnet-net5}
+OctNet utiliza una estructura híbrida formada por una rejilla de octrees poco profundos. La rejilla organiza regiones locales y los árboles permiten representar su contenido de forma adaptativa; las operaciones de la red aprovechan esa organización en lugar de exigir una discretización densa uniforme de alta resolución \parencite{riegler2017}.
+
+En este proyecto, \emph{Net5} es el nombre adoptado para la adaptación de la arquitectura de capacidad fija presentada en el suplemento de OctNet. No designa una reproducción literal del sistema original. Su relación con ese antecedente se encuentra en la organización de cinco bloques convolucionales y en el control de la capacidad del modelo entre resoluciones. Los atributos de entrada, las operaciones nativas y la preparación geométrica corresponden a la implementación estudiada y se describen en la Sección~\ref{sec:net5-metodologia}.
+
+Mantener el número de parámetros no implica mantener el costo de ejecución. Los pesos describen la capacidad parametrizada, mientras que el número de regiones procesadas, las activaciones intermedias y las operaciones geométricas dependen también de la entrada. Esta distinción permite interpretar por qué una comparación entre resoluciones debe considerar recursos además de exactitud.
+
+\section{ModelNet40 como conjunto de referencia}
+\label{sec:modelnet40}
+ModelNet se introdujo junto con ShapeNets como recurso para el aprendizaje y reconocimiento de formas \parencite{wu2015}. ModelNet40 contiene $12\,311$ objetos de 40 categorías, con $9\,843$ objetos de entrenamiento y $2\,468$ de prueba en su partición oficial \parencite{modelnet}. Esta organización permite mantener una evaluación externa común, mientras que la selección interna de modelos se realiza a partir del conjunto de entrenamiento.
+
+Los objetos son modelos CAD, no reconstrucciones ópticas adquiridas en condiciones de laboratorio. Por tanto, el conjunto permite estudiar clasificación de formas bajo ese dominio, pero no demuestra transferencia a superficies incompletas, ruido de adquisición u otras condiciones de medición real. La distribución desigual de objetos entre categorías también hace pertinente distinguir métricas que ponderan por número de objetos de aquellas que asignan igual peso a cada clase.
+
+\section{Evaluación del desempeño y los costos}
+\label{sec:evaluacion-costo}
+\subsection{Desempeño de clasificación}
+La exactitud global es la proporción de objetos clasificados correctamente. Puede estar dominada por categorías frecuentes. La exactitud balanceada promedia las sensibilidades de las categorías y asigna el mismo peso a cada una, lo que permite examinar el desempeño cuando los soportes son desiguales \parencite{brodersen2010}.
+
+Para una categoría, la precisión expresa qué proporción de sus predicciones es correcta, mientras que la sensibilidad indica qué proporción de sus objetos reales fue recuperada. La medida $F_1$ combina ambas mediante una media armónica, de modo que un valor alto requiere equilibrio entre ellas \parencite{powers2011}. Estas medidas permiten distinguir errores de asignación excesiva de una etiqueta y omisiones de objetos que pertenecen a ella.
+
+El promedio macro de $F_1$ asigna igual peso a cada categoría; el ponderado considera su soporte. Ambos resumen las medidas por clase, pero responden a preguntas distintas y no equivalen a calcular $F_1$ a partir de promedios de precisión y sensibilidad. La matriz de confusión conserva las relaciones entre etiquetas reales y predichas. Normalizarla por filas permite interpretar cada fila como la distribución de decisiones para una categoría real, sin confundir esas proporciones con conteos absolutos \parencite{powers2011}. Las definiciones operativas se presentan en el Capítulo~\ref{chap:metodologia}.
+
+\subsection{Incertidumbre y comparación emparejada}
+El remuestreo \textit{bootstrap} aproxima la variabilidad de un estadístico mediante muestras obtenidas con reemplazo del conjunto observado. Los intervalos resultantes describen incertidumbre bajo las condiciones del procedimiento y de la muestra disponible \parencite{efron1986bootstrap}. Aplicarlo a predicciones de modelos fijos no incorpora la variabilidad que producirían nuevos entrenamientos, otros equipos u otros dominios de adquisición.
+
+Cuando dos clasificadores se evalúan sobre los mismos objetos, sus resultados están emparejados. La prueba de McNemar se basa en los pares discordantes: objetos acertados por uno y fallados por el otro. Su versión exacta utiliza la distribución binomial condicional de esos desacuerdos para contrastar la igualdad de las probabilidades marginales de acierto \parencite{mcnemar1947,fagerland2013}. Esta comparación aprovecha la correspondencia por objeto, que no puede reemplazarse por la simple igualdad del tamaño de las muestras.
+
+Un valor $p$ expresa la incompatibilidad de los datos con una hipótesis nula bajo el modelo estadístico; no representa la probabilidad de que esa hipótesis sea verdadera ni mide el tamaño de la ventaja. Un resultado no significativo tampoco demuestra igualdad. Además, interpretar varios contrastes sin corrección por comparaciones múltiples conserva un alcance nominal para cada comparación, sin controlar conjuntamente la probabilidad de al menos un falso rechazo \parencite{wasserstein2016}. La lectura debe acompañarse de diferencias observadas, intervalos y límites del diseño.
+
+\subsection{Dimensiones del costo}
+El tiempo de entrenamiento corresponde a la obtención de un modelo, mientras que el de inferencia corresponde a su utilización sobre nuevas entradas. La latencia de una predicción y la cantidad de objetos procesados por unidad de tiempo no son intercambiables: la agrupación y el paralelismo pueden afectar ambas de manera distinta. La reproducibilidad exige explicitar condiciones y etapas incluidas en las mediciones \parencite{pineau2021}.
+
+La memoria pico es un máximo durante un intervalo de ejecución; el tamaño en disco describe la persistencia de un artefacto. La memoria residente del proceso y la memoria del acelerador pertenecen a ámbitos distintos y no deben sustituirse entre sí. Asimismo, una representación dispersa puede reducir información almacenada sin producir una reducción proporcional de latencia, debido a su organización y a las operaciones necesarias para procesarla \parencite{samet,riegler2017}. La comparación debe separar estas magnitudes y restringirse a alcances equivalentes.
+
+\section{Reproducibilidad experimental}
+\label{sec:reproducibilidad}
+La reproducibilidad permite examinar si las conclusiones están respaldadas por procedimientos y artefactos suficientemente documentados. En aprendizaje automático, conservar código, condiciones experimentales y resultados facilita identificar qué se ejecutó y bajo qué decisiones \parencite{pineau2021}. Disponer de una métrica final no basta para reconstruir el experimento que la produjo.
+
+Una auditoría de integridad, una reevaluación de modelos y una repetición de entrenamiento responden a preguntas diferentes. La primera verifica correspondencias y propiedades de los artefactos; la segunda vuelve a obtener predicciones con modelos fijados; la tercera incorpora nuevamente el proceso de ajuste. En este documento se conserva esa distinción para delimitar la evidencia. Los identificadores, manifiestos y mecanismos concretos de trazabilidad se describen en la metodología.
+
+\section{Estado del arte}
+\label{sec:estado-arte}
+Los antecedentes muestran que la clasificación tridimensional puede abordarse cambiando tanto la representación como el mecanismo de aprendizaje. ShapeNets vincula modelado volumétrico y reconocimiento de formas; los métodos multivista agregan información de imágenes renderizadas; PointNet procesa conjuntos de puntos mediante una arquitectura que respeta su falta de orden \parencite{wu2015,su2015,qi2017}. Estas familias ofrecen alternativas al procesamiento de octrees, pero sus resultados no aíslan por sí solos el efecto de la representación bajo las condiciones de este proyecto.
+
+Entre los métodos jerárquicos, OctNet combina una rejilla con octrees locales y proporciona el antecedente de la adaptación Net5 \parencite{riegler2017}. O-CNN constituye otro antecedente directamente pertinente: realiza operaciones sobre octantes ocupados por la superficie y utiliza normales promedio como atributos de entrada \parencite{wang2017ocnn}. Su cercanía conceptual radica en aprovechar ocupación y orientación superficial. Sin embargo, su organización y sus operaciones no equivalen a las de la adaptación aquí evaluada; compartir atributos no convierte las implementaciones en reproducciones del mismo método.
+
+La Tabla~\ref{tab:antecedentes} sintetiza estas relaciones y diferencia el aporte de cada antecedente del alcance de la presente comparación. Su propósito es posicionar el estudio, sin ordenar exactitudes obtenidas bajo protocolos no reproducidos.
+\begin{table}[htbp]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Antecedentes y posición del estudio. Comparación conceptual de elaboración propia a partir de las fuentes citadas; no constituye una comparación experimental de sus exactitudes.}
+\label{tab:antecedentes}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.25cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Enfoque o estudio & Aporte conceptual & Relación con el proyecto & Diferencia de alcance \\
+\midrule
+ShapeNets \parencite{wu2015} & Aprendizaje volumétrico y conjunto ModelNet. & Contexto de clasificación sobre formas discretizadas. & No reproduce el contraste HCE--Net5 estudiado. \\
+MVCNN \parencite{su2015} & Agregación de vistas renderizadas. & Alternativa para representar el mismo tipo de objeto. & Opera sobre imágenes, no sobre la jerarquía utilizada aquí. \\
+PointNet \parencite{qi2017} & Aprendizaje sobre conjuntos de puntos sin orden. & Alternativa a la discretización jerárquica. & Emplea otra representación y arquitectura. \\
+OctNet \parencite{riegler2017} & Rejilla híbrida de octrees poco profundos. & Referencia conceptual y arquitectónica de Net5. & La adaptación del proyecto no es una reproducción literal. \\
+O-CNN \parencite{wang2017ocnn} & Convoluciones en octantes superficiales y normales promedio. & Relaciona dispersión espacial y orientación local. & Utiliza una organización y operaciones propias. \\
+Presente estudio & Comparación controlada de características manuales y aprendidas. & HCE con SVM y Bosque Aleatorio frente a Net5, en dos resoluciones. & Se limita al protocolo, dominio y configuraciones evaluados. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+La comparación permite separar dos decisiones: cómo representar la geometría y cómo obtener una función de clasificación a partir de ella. El proyecto utiliza la representación jerárquica como punto de partida común para contrastar características manuales con una adaptación de aprendizaje profundo. No evalúa experimentalmente todas las arquitecturas de la tabla ni pretende reemplazar sus comparaciones originales.
+\FloatBarrier
+\section{Síntesis crítica y alcance del estudio}
+\label{sec:vacio-investigacion}
+El vacío abordado es experimental y está delimitado al proyecto: disponer de una comparación controlada entre HCE con SVM y Bosque Aleatorio y la adaptación nativa de Net5, utilizando las mismas particiones, las resoluciones $32^3$ y $64^3$ y un protocolo común de desempeño, costo y trazabilidad. No se afirma que exista una ausencia general de comparaciones en la literatura.
+
+La contribución consiste en conectar representaciones, modelos y evidencias de evaluación bajo condiciones documentadas, de modo que puedan interpretarse conjuntamente aciertos, errores y recursos. Un protocolo común exige explicitar también sus diferencias internas: no hace directamente comparables mediciones que abarcan etapas distintas. Esta delimitación permite estudiar el compromiso entre desempeño y costo sin extender las conclusiones a otras arquitecturas, conjuntos de datos o condiciones de adquisición no evaluadas.

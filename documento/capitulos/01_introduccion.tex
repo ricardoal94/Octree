@@ -1,0 +1,79 @@
+\chapter{Introducción}
+\label{chap:introduccion}
+
+El presente trabajo se desarrolló en el Grupo de Óptica y Tratamiento de Señales de la Escuela de Física de la Universidad Industrial de Santander. Su motivación se relaciona con la línea de metrología óptica, en la que la reconstrucción tridimensional genera grandes cantidades de información y plantea la necesidad de representarla, almacenarla y procesarla de manera eficiente. Esta motivación institucional orientó la elección de estructuras jerárquicas, aunque la evaluación realizada se delimitó a la clasificación de objetos tridimensionales y no a la medición de superficies mediante un sistema óptico.
+
+Las representaciones geométricas constituyen una decisión central en el procesamiento tridimensional: determinan la información accesible al algoritmo y las operaciones que pueden ejecutarse sobre ella. La literatura comprende métodos volumétricos, aproximaciones basadas en vistas y redes que operan directamente sobre puntos \parencite{wu2015,su2015,qi2017}. En este proyecto se adoptó el octree como soporte común para estudiar dos formas de clasificación: características manuales con SVM y Bosque Aleatorio, y aprendizaje profundo mediante una adaptación de Net5.
+
+\section{Planteamiento del problema}
+\label{sec:planteamiento}
+Una resolución espacial mayor permite representar subdivisiones más pequeñas, pero también incrementa la información que debe procesarse. En una rejilla densa, duplicar la resolución por eje multiplica por ocho el número de celdas. Una representación jerárquica puede evitar la reserva explícita de regiones vacías, aunque su uso requiere recorridos, índices y operaciones adicionales \parencite{meagher1982,riegler2017}. Por ello, el número de celdas evitadas no determina por sí solo el tiempo o la memoria de una aplicación completa.
+
+El problema experimental consistió en establecer cómo cambia el compromiso entre desempeño y costo al utilizar representaciones equivalentes de $32^3$ y $64^3$ con tres clasificadores. Una comparación basada únicamente en exactitud omitiría la preparación de los datos, el tamaño de los modelos y los recursos de inferencia. A su vez, tiempos tomados en etapas diferentes podrían conducir a conclusiones inadecuadas. Se requirió, por tanto, fijar los datos y las configuraciones, identificar cada etapa medida y conservar los resultados por objeto.
+
+\section{Justificación}
+\label{sec:justificacion}
+El estudio aporta evidencia para seleccionar configuraciones de clasificación bajo restricciones de recursos. SVM y Bosque Aleatorio permiten evaluar características explícitas del octree, mientras Net5 permite estudiar características aprendidas sobre una estructura jerárquica. Su comparación dentro de un mismo proyecto facilita distinguir el costo de los modelos del costo de preparar la representación.
+
+Para el Grupo de Óptica y Tratamiento de Señales, esta evaluación constituye un antecedente computacional sobre el manejo de información tridimensional. No demuestra exactitud metrológica ni valida reconstrucciones ópticas: ofrece un protocolo y resultados que pueden orientar estudios posteriores con datos adquiridos experimentalmente. La conservación de configuraciones, predicciones y modelos facilita además la revisión del trabajo y la repetición de sus evaluaciones.
+
+\section{Pregunta e hipótesis de investigación}
+\label{sec:pregunta-hipotesis}
+La pregunta de investigación fue: ¿cómo varían el desempeño de clasificación y el costo computacional de SVM, Bosque Aleatorio y Net5, sobre representaciones basadas en octrees de ModelNet40, al pasar de $32^3$ a $64^3$ bajo condiciones experimentales documentadas?
+
+Como hipótesis de trabajo se consideró que aumentar la resolución podría mejorar la discriminación geométrica, pero que la mejora de clasificación no necesariamente compensaría el incremento de tiempo y memoria. Esta proposición orientó el análisis del compromiso entre desempeño y costo; las hipótesis estadísticas específicas se formularon sobre las predicciones emparejadas y se describen en el Capítulo~\ref{chap:metodologia}. No se planteó que un método debiera ser superior en todas las métricas.
+
+\section{Objetivos}
+\label{sec:objetivos}
+
+\subsection{Objetivo general}
+
+Realizar una comparación reproducible y cuantitativa entre un enfoque clásico
+basado en una estructura de datos jerárquica de tipo árbol que descompone
+recursivamente el espacio tridimensional en ocho octantes (octree) y la red
+\NetCinco para la clasificación en \ModelNet, evaluando el desempeño
+(exactitud y matriz de confusión) y el costo computacional (tiempo, memoria y
+tamaño del modelo) en resoluciones de \resolucion{32} y \resolucion{64}.
+
+\subsection{Objetivos específicos}
+
+\begin{enumerate}[label=\arabic*.,leftmargin=*]
+  \item Implementar y documentar un enfoque clásico basado en octree, sin
+        aprendizaje profundo, para clasificación tridimensional en \ModelNet
+        a resoluciones equivalentes de \resolucion{32} y \resolucion{64}.
+
+  \item Definir y justificar un conjunto de características manuales extraídas
+        del octree y entrenar clasificadores tradicionales SVM y Bosque
+        Aleatorio bajo un esquema de validación consistente.
+
+  \item Implementar, entrenar y configurar una red profunda basada en octrees
+        de tipo \NetCinco bajo las mismas particiones de datos y resoluciones
+        equivalentes de \resolucion{32} y \resolucion{64}.
+
+  \item Definir y ejecutar un protocolo experimental reproducible,
+        especificando particiones de datos, semillas, configuraciones y
+        registro de resultados, garantizando trazabilidad de los
+        experimentos.
+
+  \item Evaluar y comparar ambos enfoques en términos de exactitud y matriz de
+        confusión, y en términos de costo computacional mediante tiempo de
+        entrenamiento, tiempo de inferencia, memoria pico y tamaño del modelo,
+        analizando la escalabilidad por resolución y el compromiso
+        desempeño--costo.
+\end{enumerate}
+
+
+
+\section{Alcance y delimitaciones}
+\label{sec:alcance}
+Se evaluó la clasificación supervisada de objetos CAD en las 40 categorías de ModelNet40. Se conservaron sus particiones oficiales y se estudiaron únicamente las resoluciones $32^3$ y $64^3$, con 20\,000 puntos muestreados por objeto y semilla base 42. El enfoque clásico comprendió un SVM con núcleo radial y un Bosque Aleatorio; el enfoque profundo correspondió a Net5 con operaciones nativas sobre octrees.
+
+El estudio incluyó una ejecución de entrenamiento por configuración, evaluación de clasificación sobre el conjunto de prueba completo y mediciones de recursos sobre muestras documentadas. La reevaluación de los modelos guardados no constituyó un entrenamiento independiente. Quedaron fuera del alcance la segmentación, la reconstrucción óptica, la estimación de incertidumbre metrológica, la evaluación sobre objetos escaneados y la generalización a otros equipos o conjuntos de datos.
+
+\section{Contribuciones del trabajo}
+\label{sec:contribuciones}
+Se implementó un procesamiento geométrico con representaciones densa y jerárquica verificables; se definieron contratos de características manuales; se integró una adaptación nativa de Net5; y se organizaron modelos, particiones y resultados para repetir la evaluación. La contribución experimental es una comparación trazable de clasificación y costo en dos resoluciones, acompañada de una reevaluación y de las limitaciones del protocolo. No se propone una arquitectura inédita ni se atribuye a los resultados una superioridad general sobre el estado del arte.
+
+\section{Organización del documento}
+\label{sec:organizacion}
+El Capítulo~\ref{chap:fundamentos} presenta los fundamentos y antecedentes; el Capítulo~\ref{chap:metodologia}, el procesamiento geométrico, los clasificadores y el protocolo experimental; y el Capítulo~\ref{chap:resultados}, los resultados de clasificación, los recursos, la variación por resolución y las limitaciones. Finalmente, el Capítulo~\ref{chap:conclusiones} relaciona las conclusiones con los objetivos y plantea líneas de continuidad. Los anexos reúnen las matrices de confusión y la información complementaria de trazabilidad.

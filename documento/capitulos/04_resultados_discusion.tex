@@ -1,0 +1,145 @@
+\chapter{Resultados y discusión}
+\label{chap:resultados}
+Se presentan los resultados obtenidos con las representaciones y los modelos descritos en el Capítulo~\ref{chap:metodologia}. Se separan la validación geométrica, la evaluación de clasificación y las mediciones de costo, porque corresponden a conjuntos de observaciones y alcances diferentes. Las tablas se elaboraron a partir de los archivos de resultados versionados; las figuras de este capítulo se generaron a partir de esos mismos registros. Los ejemplos ilustrativos de la metodología no se utilizaron como sustitutos de las mediciones del conjunto de prueba.
+
+\section{Validación de las representaciones tridimensionales}
+\label{sec:resultados-representaciones}
+La muestra controlada incluyó diez modelos: un objeto de entrenamiento y uno de prueba de cada categoría \texttt{airplane}, \texttt{car}, \texttt{chair}, \texttt{sofa} y \texttt{table}. Se obtuvieron veinte registros al considerar las dos resoluciones. El resumen de ejecución informó diez modelos exitosos y ninguno fallido; las comprobaciones registraron equivalencia correcta y ausencia de errores de integridad. Esta evidencia corresponde a la muestra controlada, no a una auditoría individual de los $12\,311$ modelos.
+
+La Tabla~\ref{tab:geometria-resultados} resume los conteos y tamaños de esta muestra. La ocupación es la proporción de hojas ocupadas respecto a las celdas de la resolución equivalente; los promedios se calcularon sobre diez objetos por resolución.
+\input{tablas/geometria}
+
+El crecimiento del número de hojas no implicó reservar todos los elementos de la rejilla densa. Sin embargo, una estructura de objetos Python introduce referencias y sobrecarga que no están presentes en una estimación binaria de sus arreglos. Por ello, la compacidad del archivo NPZ no demuestra por sí sola un menor pico de memoria durante la construcción. Asimismo, la compresión del tensor denso puede aprovechar regiones repetidas; la comparación pertinente depende de si se estudia memoria de trabajo, carga binaria o almacenamiento comprimido.
+
+La Tabla~\ref{tab:construccion-costos} presenta los indicadores de construcción registrados para esta muestra. La memoria transitoria se interpreta según la instrumentación del primer objetivo y no como el conjunto de trabajo de Windows utilizado después en inferencia.
+\input{tablas/construccion}
+
+Las diferencias entre columnas muestran por qué la carga binaria no sustituye una medición de memoria de construcción. Los tiempos son promedios por objeto de esta muestra y no una extrapolación medida del procesamiento completo de ModelNet40. La carga binaria registrada incluye el alcance definido por el generador de métricas y debe distinguirse de los 18 bytes por nodo de los cuatro arreglos estructurales aislados.
+
+La comprobación específica de \texttt{chair\_0001} verificó las representaciones antes y después de guardar y cargar. En $32^3$ se registraron 762 hojas ocupadas y $1\,121$ nodos; en $64^3$ se registraron $2\,573$ hojas ocupadas y $3\,694$ nodos totales. La diferencia máxima registrada en las normales fue del orden de $1{,}19\times10^{-7}$, compatible con la tolerancia de la comprobación numérica. Este objeto se mantuvo como caso ilustrativo de verificación geométrica.
+
+En el inventario completo se registraron $12\,311$ archivos por resolución. Los octrees ocuparon $203{,}33$ MB en $32^3$ y $436{,}62$ MB en $64^3$, equivalentes a promedios de $16{,}13$ y $34{,}63$ KiB por objeto. El almacenamiento creció aproximadamente $2{,}15$ veces; este cociente describe archivos comprimidos de este conjunto y no una ley general de complejidad del octree.
+
+\section{Resultados del enfoque clásico}
+\label{sec:resultados-hce}
+La auditoría registrada no encontró columnas constantes ni valores no finitos en el entrenamiento oficial. El descriptor $o_1$ presentó variabilidad y se conservó. Los contratos persistidos no excluyeron ninguna de las 17 o 18 columnas del esquema base; la exclusión de $o_0$ ya formaba parte de la definición analítica. La comprobación documental posterior sobre los $8\,858$ índices de ajuste reconstruidos tampoco encontró columnas constantes ni valores no finitos. En ambas resoluciones, $o_1$ varió entre $25\,\%$ y $100\,\%$. Por tanto, restringir este diagnóstico a ajuste conservó los mismos índices y dimensiones, sin detectar un cambio de características que exigiera repetir los entrenamientos.
+
+Los registros complementarios de correspondencia fila--objeto incluyeron $9\,843$ identificadores únicos en cada resolución: $8\,858$ de ajuste y 985 de validación. La comparación con el manifiesto de Net5 produjo cero diferencias tanto en los identificadores como en sus posiciones dentro de cada subconjunto. También coincidieron las categorías y el orden de objetos entre las resoluciones $32^3$ y $64^3$. Las huellas consignadas en los registros correspondieron a los archivos HCE examinados, mientras que las dos ejecuciones de Net5 registraron la misma huella del manifiesto. Por tanto, las relaciones aportadas son consistentes con una partición común entre HCE y Net5.
+
+Los CSV declararon una coincidencia única de descriptores para cada una de las $9\,843$ filas de ambas resoluciones. Este resultado se reporta conforme a los registros suministrados; durante la revisión documental no se volvió a ejecutar la comparación de descriptores contra los octrees originales. La verificación realizada cubrió la integridad interna de las relaciones y su concordancia con el manifiesto, y quedó registrada en \protect\path{verificacion_relaciones_hce.json}. Los registros complementan los NPZ de características, que no almacenan identificadores de objeto por fila.
+
+Los clasificadores clásicos utilizaron 17 características en $32^3$ y 18 en $64^3$, conforme al contrato de características. El SVM seleccionado empleó núcleo de base radial, parámetro de penalización 10 y la regla \texttt{scale} para la anchura del núcleo en ambas resoluciones. El Bosque Aleatorio conservó cien árboles. El escalador del SVM formó parte del modelo persistido, de modo que la predicción reutilizó la transformación ajustada durante el entrenamiento.
+
+El SVM pasó de $75{,}93\,\%$ a $77{,}19\,\%$ de exactitud; el bosque pasó de $76{,}38\,\%$ a $77{,}19\,\%$. En $64^3$ ambos acertaron $1\,905$ objetos, pero sus F1 macro fueron distintos y sus predicciones no fueron idénticas. La igualdad de la exactitud agregada no implica que los métodos cometan los mismos errores. Las exactitudes balanceadas, inferiores a las globales, muestran que el comportamiento promedio por categoría fue menos favorable que el sugerido por el conteo total de aciertos.
+
+\section{Resultados de Net5}
+\label{sec:resultados-net5}
+Net5 alcanzó $82{,}21\,\%$ en $32^3$ y $83{,}23\,\%$ en $64^3$, con $2\,029$ y $2\,054$ aciertos, respectivamente. Las épocas seleccionadas fueron la 25 y la 19; las ejecuciones finalizaron en las épocas 45 y 39 por el criterio de parada anticipada. Las mejores exactitudes de validación fueron $84{,}77\,\%$ y $85{,}48\,\%$. La Figura~\ref{fig:curvas-finales} muestra la evolución de ajuste y validación, para distinguir la selección del modelo de su evaluación posterior en prueba.
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{Figuras/cierre_curvas.pdf}
+\caption{Evolución de la exactitud de Net5 en ajuste y validación: (a) resolución $32^3$ y (b) resolución $64^3$. Las líneas verticales señalan las épocas seleccionadas. Elaboración propia a partir de los historiales completos; la prueba no intervino en esta selección.}\label{fig:curvas-finales}
+\end{figure}
+La separación entre las curvas evidencia una capacidad elevada para ajustar los objetos de entrenamiento sin alcanzar el mismo desempeño en validación. La parada anticipada limitó la prolongación del ajuste, pero no eliminó esa diferencia. No se evaluó una familia de capacidades de red ni distintas semillas de entrenamiento; por tanto, estos resultados corresponden a la configuración descrita y no al máximo desempeño posible de las redes basadas en octrees.
+
+\section{Comparación del desempeño de clasificación}
+\label{sec:comparacion-clasificacion}
+La Tabla~\ref{tab:clasificacion-final} presenta los resultados de prueba de los tres métodos para facilitar su comparación bajo el mismo conjunto de objetos. Se incluyen los aciertos y errores junto con métricas que distinguen el desempeño global del promedio entre categorías.
+\input{tablas/clasificacion}
+
+Net5 superó al SVM en $6{,}28$ puntos porcentuales en $32^3$ y en $6{,}04$ en $64^3$. Frente al bosque, la diferencia fue de $5{,}83$ y $6{,}04$ puntos. El F1 macro también fue mayor para Net5: $74{,}93\,\%$ y $77{,}23\,\%$, frente a valores entre $65{,}82\,\%$ y $68{,}53\,\%$ en los métodos clásicos. La ventaja no se restringió, por tanto, a la exactitud global.
+
+La Tabla~\ref{tab:intervalos-finales} presenta los intervalos de exactitud para los modelos fijos. Su amplitud describe la incertidumbre del remuestreo de prueba y no la estabilidad entre entrenamientos.
+\input{tablas/intervalos}
+
+Los límites de Net5 quedaron por encima de los de los clásicos en estas observaciones. La comparación emparejada se examinó mediante los contrastes siguientes, en lugar de utilizar el solapamiento de intervalos como prueba de igualdad.
+
+La Tabla~\ref{tab:contrastes-finales} presenta las discordancias emparejadas y los valores de probabilidad de los nueve contrastes. Se informan sin corrección por multiplicidad, como se estableció en la metodología.
+\input{tablas/contrastes}
+
+Los contrastes de Net5 frente a los métodos clásicos registraron valores inferiores a $10^{-11}$. No se detectó una diferencia entre bosque y SVM al nivel nominal utilizado. La diferencia entre resoluciones del SVM registró un valor de $0{,}029$, que debe interpretarse con cautela por la multiplicidad de contrastes. Las diferencias entre resoluciones del bosque y de Net5 no alcanzaron el umbral nominal; este resultado no prueba igualdad entre resoluciones.
+
+La Figura~\ref{fig:recall-final} presenta la sensibilidad por categoría y configuración. Las seis matrices de confusión completas se incluyen en el Anexo~\ref{anexo:confusiones}; allí se mantiene la normalización por fila para comparar categorías con soportes distintos.
+\begin{figure}[p]\centering
+\includegraphics[width=0.94\textwidth,height=0.79\textheight,keepaspectratio]{Figuras/cierre_sensibilidad.pdf}
+\caption{Sensibilidad por categoría de los tres métodos en $32^3$ y $64^3$, expresada en porcentaje. Cada columna representa una configuración y cada fila una categoría oficial. Elaboración propia a partir de las predicciones de los $2\,468$ objetos de prueba.}\label{fig:recall-final}
+\end{figure}
+Entre las confusiones recurrentes se encontraron \texttt{night\_stand} con \texttt{dresser}, \texttt{table} con \texttt{desk} y \texttt{bottle} con \texttt{vase}. Para Net5, los errores de \texttt{table} hacia \texttt{desk} disminuyeron de 28 a 17 al aumentar la resolución, mientras que los de \texttt{dresser} hacia \texttt{night\_stand} aumentaron de 13 a 18. La mejora global no fue uniforme entre categorías ni entre pares de clases. La similitud geométrica de estos objetos constituye una explicación plausible, pero no se realizó una intervención experimental que aislara su causa.
+
+Los tres métodos acertaron simultáneamente $1\,616$ objetos en $32^3$ y $1\,651$ en $64^3$; todos fallaron en 250 y 226 objetos, respectivamente. Net5 acertó de forma exclusiva 166 y 179 objetos. A su vez, en 189 y 188 casos Net5 falló y al menos un clasificador clásico acertó. Estos conteos muestran complementariedad de errores, aunque no constituyen el resultado de un ensamblaje entrenado ni justifican atribuirle la exactitud de un selector ideal.
+
+\section{Comparación del costo computacional}
+\label{sec:comparacion-costo}
+La Tabla~\ref{tab:latencia-final} presenta las medianas de carga, extracción o preparación geométrica y predicción o propagación, junto con la mediana y el percentil 95 del agregado por objeto. Se conservaron los límites de instrumentación desde el NPZ, incluida la exclusión del armado de lote en el caso GPU de Net5 indicada en la metodología.
+\input{tablas/latencia}
+
+Los intervalos instrumentados de HCE y Net5 no abarcaron exactamente las mismas operaciones; por ello, no se utilizaron sus cocientes para establecer una ventaja directa de velocidad entre ambos enfoques. La preparación geométrica de Net5 tuvo medianas de $37{,}55$ y $187{,}90$ ms, superiores a las de su propagación GPU, de $5{,}91$ y $11{,}81$ ms. En los métodos clásicos, la predicción aislada del SVM permaneció alrededor de $0{,}82$ ms, mientras que la carga y extracción aumentaron con la resolución. Estos resultados identifican etapas costosas; no atribuyen toda la latencia al clasificador.
+
+La Tabla~\ref{tab:memoria-final} distingue la memoria adicional, la memoria total del proceso y la memoria GPU asignada y reservada. Los picos corresponden a la muestra efectiva de cien objetos de tres categorías.
+\input{tablas/memoria}
+
+El SVM presentó el menor incremento de RAM observado. El bosque requirió aproximadamente 266--268 MiB adicionales y Net5 en GPU, 729--821 MiB en la medición principal. Parte de la diferencia entre memoria total y adicional procede del entorno de bibliotecas y del contexto de ejecución. Estas magnitudes no equivalen al tamaño de los pesos ni a la memoria de un octree individual.
+
+La Tabla~\ref{tab:modelos-finales} presenta el almacenamiento y la complejidad de los modelos conservados. Se separa esta comparación de la memoria de inferencia porque la representación serializada y la residente tienen costos distintos.
+\input{tablas/modelos}
+
+El bosque produjo archivos aproximadamente 31 veces mayores que los del SVM, sin registrar una ventaja de exactitud en $64^3$. Net5 mantuvo prácticamente constante el tamaño del archivo entre resoluciones porque el número de parámetros fue el mismo. El aumento del costo de ejecución de Net5 se relacionó con las representaciones y operaciones intermedias, no con un incremento del número de pesos aprendidos.
+
+La Tabla~\ref{tab:entrenamiento-final} presenta el tiempo de entrenamiento requerido por el quinto objetivo y separa la preparación HCE de los ajustes de los clasificadores. Cada fila identifica la unidad, la naturaleza medida o estimada y las operaciones incluidas.
+\input{tablas/entrenamiento}
+
+La estimación HCE extrapoló a los $9\,843$ objetos oficiales de entrenamiento la suma de las medias de carga y extracción obtenidas en la muestra de latencia; no constituye el cronometraje de una extracción completa. La búsqueda y el ajuste de los clasificadores clásicos comenzaron con las características disponibles. En Net5 se acumuló la duración de las épocas, incluida la validación, hasta la parada anticipada. Por tanto, estas duraciones permiten identificar el costo de cada etapa documentada, pero no se compararon como intervalos equivalentes ni se sumaron para atribuirles un tiempo experimental completo desde la malla.
+
+La Tabla~\ref{tab:reevaluacion-final} contrasta las latencias y los picos de RAM de la medición principal con la reevaluación del 27 de septiembre. Las predicciones de los seis modelos coincidieron objeto a objeto en los $2\,468$ casos, mientras que las mediciones temporales variaron. El informe de esa ejecución registró 103 pruebas automatizadas aprobadas en el entorno de su autor. Este conteo corresponde al registro conservado y no a una nueva ejecución durante la revisión documental.
+\input{tablas/reevaluacion}
+
+La preservación de las predicciones respalda la repetición de la evaluación de los modelos conservados. Las variaciones temporales muestran que una ejecución no fija una constante de rendimiento del equipo. En particular, el aumento de RAM adicional GPU de Net5 entre resoluciones fue de $12{,}7\,\%$ en la corrida principal (de $728{,}94$ a $821{,}49$ MiB) y de $2{,}2\,\%$ en la reevaluación (de $747{,}82$ a $764{,}57$ MiB), como respalda el panel (b) de la Tabla~\ref{tab:reevaluacion-final}; no se estableció un porcentaje estable atribuible únicamente a la resolución.
+
+\section{Análisis de escalabilidad por resolución}
+\label{sec:escalabilidad}
+Las ganancias de exactitud al pasar de $32^3$ a $64^3$ fueron $1{,}26$ puntos para SVM, $0{,}81$ para bosque y $1{,}01$ para Net5. Representaron 31, 20 y 25 aciertos adicionales, respectivamente. Las medianas temporales se multiplicaron aproximadamente por $3{,}68$, $2{,}93$ y $4{,}42$ para SVM, bosque y Net5 en GPU. Net5 acumuló alrededor de $2{,}75$ veces el tiempo de entrenamiento. Estos cocientes corresponden a las dos resoluciones ensayadas y no constituyen una extrapolación a resoluciones superiores.
+
+Aunque duplicar la resolución de cada eje multiplica por ocho las celdas de una rejilla densa, el archivo comprimido de los octrees completos aumentó aproximadamente $2{,}15$ veces. La reducción de almacenamiento frente al crecimiento cúbico no implica que las operaciones posteriores escalen con el mismo factor: intervienen la cantidad de hojas, la geometría, la preparación de planes y el movimiento de datos.
+
+\section{Compromiso entre desempeño y costo}
+\label{sec:compromiso}
+La Figura~\ref{fig:compromiso-final} relaciona la exactitud y la latencia mediana para visualizar la decisión entre configuraciones. Esta figura reúne magnitudes presentadas por separado en las tablas. Las líneas permiten examinar el cambio de resolución dentro de cada método; la separación horizontal entre métodos con alcances temporales distintos no se interpreta como una razón comparable de velocidad.
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{Figuras/cierre_compromiso.pdf}
+\caption{Exactitud de prueba frente a mediana de latencia registrada desde NPZ. Las líneas unen resoluciones de un mismo método; Net5 corresponde a GPU. La abscisa usa escala logarítmica. Su tiempo omite el armado previo del lote, por lo que no representa un tiempo completo desde la malla ni un alcance idéntico al de CPU. Elaboración propia.}\label{fig:compromiso-final}
+\end{figure}
+Dentro del protocolo común de los dos clasificadores clásicos, SVM en $32^3$ presentó menor latencia y menor incremento de RAM. Su archivo de modelo fue también el menor entre las configuraciones evaluadas. Los tiempos agregados de Net5 y HCE no permiten extender esa conclusión a una clasificación global de velocidad, porque sus alcances no son idénticos. Cuando se priorizó exactitud, Net5 en $64^3$ obtuvo el mayor valor. Net5 en $32^3$ superó la exactitud de ambos clásicos en $64^3$ y evitó gran parte del costo de Net5 en alta resolución. La elección depende del costo admisible y de las categorías relevantes; no se identificó una configuración universalmente superior en todas las dimensiones.
+
+\FloatBarrier
+\section{Síntesis del cumplimiento y alcance de los objetivos}
+\label{sec:sintesis-objetivos}
+Antes de la discusión, la Tabla~\ref{tab:sintesis-objetivos} relaciona los objetivos con las evidencias presentadas, su ubicación y los límites de interpretación. Esta síntesis permite comprobar la trazabilidad de los resultados sin sustituir las conclusiones del Capítulo~\ref{chap:conclusiones}.
+\input{tablas/sintesis_objetivos}
+
+La evidencia de cumplimiento se circunscribe al componente experimental y a las condiciones especificadas. La disponibilidad de modelos y registros respalda la comparación realizada; no extiende sus conclusiones a otros equipos, conjuntos de datos o modalidades de adquisición.
+
+\section{Discusión general}
+\label{sec:discusion-general}
+La ventaja de Net5 frente a las características manuales se manifestó tanto en exactitud global como en F1 macro y en los contrastes emparejados de la Tabla~\ref{tab:contrastes-finales}. Los vectores HCE resumieron la ocupación, la distribución espacial y las normales mediante 17 o 18 componentes; Net5 aprendió transformaciones de los atributos conservando relaciones espaciales durante sus bloques convolucionales. Una explicación plausible de la diferencia es que esos resúmenes globales no retienen toda la información discriminante accesible al modelo aprendido. Esta interpretación es coherente con el interés de la literatura por aprender representaciones directamente de datos tridimensionales, mediante octrees o conjuntos de puntos~\parencite{riegler2017,qi2017}. Sin embargo, no se realizó una ablación que aislara el efecto de las características, la arquitectura o la capacidad del clasificador. La evidencia respalda la ventaja de esta configuración de Net5 sobre los dos modelos HCE evaluados, no una superioridad universal del aprendizaje profundo.
+
+El aumento de resolución produjo ganancias pequeñas frente a su costo: Net5 obtuvo 25 aciertos adicionales, equivalentes a $1{,}01$ puntos porcentuales, mientras su latencia GPU registrada aumentó $4{,}42$ veces y el entrenamiento $2{,}75$ veces. El contraste exacto de McNemar entre resoluciones registró $p=0{,}109$ y no alcanzó el umbral nominal de $0{,}05$. Este resultado no demuestra equivalencia ni ausencia de una mejora; indica que, para estos modelos fijos y los pares observados, no se obtuvo evidencia suficiente para declarar una diferencia bajo ese criterio. Tampoco permite establecer una resolución óptima general, dado que solo se estudiaron dos resoluciones y una semilla de entrenamiento.
+
+Existe un antecedente pertinente en OctNet: en el experimento de clasificación de ModelNet40 de su material suplementario, el desempeño mejoró hasta aproximadamente $32^3$ y no continuó aumentando al elevar la resolución, manteniendo fijo el número de parámetros~\parencite{riegler2017}. La mejora limitada observada aquí es conceptualmente consistente con ese comportamiento: un mayor detalle espacial no garantiza una ganancia proporcional en clasificación. La comparación es conceptual, porque las implementaciones, los atributos, las configuraciones y las condiciones experimentales no son idénticos. No se presenta este trabajo como una reproducción cuantitativa de las exactitudes o los tiempos de OctNet, ni el contraste no significativo como una demostración independiente de saturación.
+
+La relación entre dispersión y costo exige separar almacenamiento y ejecución. OctNet explota la dispersión mediante octrees poco profundos para concentrar representación y cómputo en regiones relevantes~\parencite{riegler2017}. En este trabajo, el almacenamiento comprimido del inventario aumentó $2{,}15$ veces al duplicar la resolución por eje, frente al factor ocho del número de celdas de una rejilla densa. Ese cociente no mide por sí mismo un ahorro respecto a un tensor denso comprimido: intervienen el formato y la compresión. Tampoco determina el tiempo de cálculo. Las medianas de preparación geométrica de Net5 superaron las de propagación GPU en ambas resoluciones (Tabla~\ref{tab:latencia-final}), lo que muestra que conservar una estructura dispersa no elimina el costo de organizarla para las operaciones de la red.
+
+Los modelos clásicos ofrecen un compromiso distinto: reducen la representación a vectores pequeños y realizan la clasificación una vez disponibles esas características. El SVM presentó menor latencia y menor incremento de RAM que el bosque bajo el protocolo común de HCE, mientras que el bosque ocupó más espacio sin mejorar la exactitud en $64^3$. Estas observaciones favorecen al SVM dentro de esa comparación concreta. Entre HCE y Net5, en cambio, las diferencias de alcance temporal impiden construir una clasificación directa de velocidad a partir de los agregados. La reevaluación preservó las predicciones, pero modificó las mediciones de recursos; por ello, un resultado estable de clasificación no implica que la latencia o el pico de memoria sean constantes del modelo.
+
+La motivación del Grupo de Óptica y Tratamiento de Señales de la Escuela de Física de la Universidad Industrial de Santander se relaciona con el volumen de información de la reconstrucción tridimensional en metrología óptica. Los resultados proporcionan evidencia computacional sobre representación y clasificación en ese contexto de interés. No demuestran mejoras en incertidumbre metrológica, precisión de reconstrucción ni clasificación de mediciones ópticas reales, porque la evaluación se restringió a objetos de ModelNet40.
+
+\section{Amenazas a la validez y limitaciones experimentales}
+\label{sec:limitaciones-experimentales}
+La validez interna se apoyó en el manifiesto conservado de Net5, los registros complementarios de correspondencia fila--objeto de HCE, la selección mediante validación y la evaluación emparejada. La coincidencia de identificadores y posiciones fue comprobada documentalmente. La asociación por descriptores se sustentó en los CSV suministrados
+y en la revisión del programa
+\protect\path{trazabilidad_filas_hce.py}, que implementa la
+comparación binaria de los vectores recalculados con los almacenados.
+Esta comprobación posterior no se repitió de forma independiente
+durante la revisión documental. Sin embargo, se realizó un solo entrenamiento por configuración y semilla. Los intervalos por remuestreo del conjunto de prueba no capturan esa fuente de variabilidad. Los nueve contrastes no incluyeron corrección por comparaciones múltiples y sus resultados se interpretaron con ese alcance.
+
+La medición de recursos tuvo limitaciones concretas. La muestra de memoria cubrió solo tres categorías; el muestreo cada 2 ms pudo omitir picos más cortos y el conjunto de trabajo incluye componentes del entorno. El tiempo GPU omitió el armado del lote, mientras que el de CPU lo incluyó. Los tiempos no incluyeron construir el octree desde la malla. La extracción HCE de entrenamiento se estimó. El experimento de CPU utilizó un hilo, por lo que no representa una implementación optimizada para todos los núcleos. Tampoco se midió energía consumida.
+
+La validez externa quedó limitada a un equipo, un sistema operativo, ModelNet40 y dos resoluciones. No se evaluaron escaneos ruidosos, oclusiones, variaciones de pose fuera del protocolo ni otros conjuntos de datos. La muestra geométrica de diez modelos no se convirtió en una afirmación de auditoría exhaustiva de los $12\,311$ objetos. Finalmente, las diferencias entre clases sugieren hipótesis geométricas que requerirían estudios controlados adicionales; no se presentaron como causas demostradas.
